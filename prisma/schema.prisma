@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         UserRole @default(USER)
+  avatar       String?
+  logoName     String?
+  description  String?
+  posts        Post[]
+  comments     Comment[]
+  reactions    CommentReaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Topic {
+  id          String        @id @default(cuid())
+  name        String        @db.VarChar(100)
+  description String?       @db.Text
+  posts       Post[]
+  sidebarItems SidebarItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("topics")
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique @db.VarChar(60)
+  posts Post[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tags")
+}
+
+model Section {
+  id          String @id @default(cuid())
+  slug        String @unique
+  title       String @db.VarChar(120)
+  description String? @db.Text
+  topicSlug   String
+  idx         Int    @default(0)
+  posts       Post[]
+
+  @@map("sections")
+}
+
+model SidebarItem {
+  id          String        @id @default(cuid())
+  name        String        @db.VarChar(120)
+  href        String        @db.VarChar(255)
+  description String?
+  idx         Int           @default(0)
+  parentId    String?
+  parent      SidebarItem?  @relation("SidebarTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    SidebarItem[] @relation("SidebarTree")
+  topics      Topic[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@map("sidebar_items")
+}
+
+model Post {
+  id         String     @id @default(cuid())
+  title      String     @db.VarChar(200)
+  slug       String     @unique
+  excerpt    String?    @db.VarChar(500)
+  cover      String?
+  bodyBlocks Json
+  status     PostStatus @default(DRAFT)
+  likes      Int        @default(0)
+  bookmarks  Int        @default(0)
+  sectionId  String?
+  section    Section?   @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  authorId   Int
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  topics     Topic[]
+  tags       Tag[]
+  comments   Comment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([status, createdAt])
+  @@index([sectionId])
+  @@map("posts")
+}
+
+model Comment {
+  id           String   @id @default(cuid())
+  postId       String
+  post         Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId     String?
+  parent       Comment? @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      Comment[] @relation("CommentThread")
+  authorId     Int?
+  author       User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorName   String   @db.VarChar(80)
+  authorAvatar String?
+  content      String   @db.Text
+  isEdited     Boolean  @default(false)
+  reactions    CommentReaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId, createdAt])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model CommentReaction {
+  id        String  @id @default(cuid())
+  commentId String
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  emoji     String  @db.VarChar(8)
+  userId    Int?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, emoji])
+  @@map("comment_reactions")
+}
+
+model VisitStat {
+  id     Int    @id @default(autoincrement())
+  month  String @db.VarChar(7)
+  day    Int
+  visits Int
+
+  @@unique([month, day])
+  @@map("visit_stats")
+}
