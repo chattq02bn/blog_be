@@ -1,8 +1,9 @@
 import type { Request, Response } from "express";
 import { postService } from "../services/post.service.js";
+import { getSectionById } from "../services/section.service.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
-import type { ListPostsQuery } from "../validations/post.validation.js";
+import type { ListPostsQuery, ListPostsBySectionQuery } from "../validations/post.validation.js";
 
 export const createPost = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) {
@@ -16,6 +17,26 @@ export const createPost = asyncHandler(async (req: Request, res: Response) => {
 export const listPosts = asyncHandler(async (req: Request, res: Response) => {
   const result = await postService.listPosts(req.query as unknown as ListPostsQuery);
   res.json({ success: true, data: result.data, meta: result.meta });
+});
+
+export const listPostsBySection = asyncHandler(async (req: Request, res: Response) => {
+  const sectionId = String(req.params.sectionId);
+  const query = req.query as unknown as ListPostsBySectionQuery;
+
+  const section = await getSectionById(sectionId);
+
+  const result = await postService.listPosts({
+    sectionId,
+    page: query.page,
+    limit: query.limit,
+  });
+
+  res.json({
+    success: true,
+    data: result.data,
+    meta: result.meta,
+    section,
+  });
 });
 
 export const getPost = asyncHandler(async (req: Request, res: Response) => {

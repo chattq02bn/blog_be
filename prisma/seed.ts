@@ -836,6 +836,50 @@ async function main() {
     ...bulkPostDefs,
   ];
 
+  /* Sinh ~200 bài viết cho MỖI section để test trang chi tiết section (infinite scroll) */
+  console.log("[seed] Creating ~200 posts per section...");
+  const POSTS_PER_SECTION = 200;
+  const sectionPostSubjects = [
+    "Mẹo vặt hàng ngày", "Kinh nghiệm thực tế", "Checklist chuẩn bị",
+    "So sánh các cách", "Lần đầu thử nghiệm", "Sai lầm thường gặp",
+    "Bài học rút ra", "Mẹo tiết kiệm", "Cải thiện thói quen",
+    "Tổng kết sau 30 ngày",
+  ];
+  const sectionPostAngles = [
+    "cho người mới bắt đầu", "kinh nghiệm 1 năm", "phiên bản nâng cấp",
+    "áp dụng thực tế", "chi tiết từng bước", "mẹo nhỏ nhưng hiệu quả",
+    "từ A đến Z", "dành cho người bận rộn", "tiết kiệm thời gian",
+    "hiệu quả bất ngờ",
+  ];
+
+  const sectionKeysForPosts = Object.keys(sections);
+  let sectionPostIdx = 0;
+  for (const sectionKey of sectionKeysForPosts) {
+    const topicId = topicIdList[sectionPostIdx % topicIdList.length]!;
+    for (let i = 0; i < POSTS_PER_SECTION; i += 1) {
+      const subject = sectionPostSubjects[i % sectionPostSubjects.length]!;
+      const angle = sectionPostAngles[(i * 3 + sectionPostIdx) % sectionPostAngles.length]!;
+      const title = `${subject} ${angle} — ${sectionKey}`;
+      postDefs.push({
+        title,
+        excerpt: `${title}. Bài viết chuyên sâu thuộc chuyên mục ${sectionKey}.`,
+        section: sectionKey,
+        authorIdx: (sectionPostIdx + i) % authors.length,
+        status: i % 15 === 14 ? "draft" : "published",
+        daysAgo: 1 + ((sectionPostIdx * 7 + i * 3) % 90),
+        likes: 50 + ((sectionPostIdx * 13 + i * 97) % 800),
+        bookmarks: 20 + ((sectionPostIdx * 7 + i * 43) % 200),
+        topics: [topicId],
+        tagList: [
+          tagNames[i % tagNames.length]!,
+          tagNames[(i + 5) % tagNames.length]!,
+        ],
+        intro: `Bài viết chia sẻ kinh nghiệm về ${subject.toLowerCase()}. ${angle}.`,
+      });
+    }
+    sectionPostIdx += 1;
+  }
+
   const createdPosts: { id: string; slug: string }[] = [];
 
   for (const [i, def] of postDefs.entries()) {

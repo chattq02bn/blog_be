@@ -4,6 +4,7 @@ import {
   deletePost,
   getPost,
   listPosts,
+  listPostsBySection,
   togglePostAction,
   updatePost,
 } from "../controllers/post.controller.js";
@@ -13,6 +14,7 @@ import {
   createPostSchema,
   idParamSchema,
   listPostsQuerySchema,
+  listPostsBySectionSchema,
   reactionParamSchema,
   toggleActionBodySchema,
   updatePostSchema,
@@ -20,6 +22,7 @@ import {
 
 const router = Router();
 
+router.get("/section/:sectionId", validate(listPostsBySectionSchema, "query"), listPostsBySection);
 router.get("/", validate(listPostsQuerySchema, "query"), listPosts);
 router.get("/:id", validate(idParamSchema, "params"), getPost);
 router.post(

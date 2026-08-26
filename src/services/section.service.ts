@@ -9,6 +9,10 @@ const SECTION_SELECT = {
   description: true,
   idx: true,
   topicSlug: true,
+} as const;
+
+const SECTION_SELECT_WITH_POSTS = {
+  ...SECTION_SELECT,
   posts: {
     where: { status: "PUBLISHED" },
     select: POST_SELECT,
@@ -23,7 +27,7 @@ function serializeSection(section: {
   description: string | null;
   idx: number;
   topicSlug: string;
-  posts: Parameters<typeof serializePost>[0][];
+  posts?: Parameters<typeof serializePost>[0][];
 }) {
   return {
     id: section.id,
@@ -32,15 +36,28 @@ function serializeSection(section: {
     description: section.description ?? "",
     idx: section.idx,
     topicSlug: section.topicSlug,
-    posts: section.posts.map(serializePost),
+    ...(section.posts ? { posts: section.posts.map(serializePost) } : {}),
   };
+}
+
+export async function getSectionById(id: string) {
+  const section = await prisma.section.findUnique({
+    where: { id },
+    select: SECTION_SELECT,
+  });
+
+  if (!section) {
+    throw ApiError.notFound("Section not found");
+  }
+
+  return serializeSection(section);
 }
 
 export async function listSectionsByTopicSlug(topicSlug: string) {
   const sections = await prisma.section.findMany({
     where: { topicSlug },
     orderBy: { idx: "asc" },
-    select: SECTION_SELECT,
+    select: SECTION_SELECT_WITH_POSTS,
   });
 
   if (sections.length === 0) {
@@ -55,7 +72,7 @@ export async function listSectionsByTopicSlugs(slugs: string[]) {
   const sections = await prisma.section.findMany({
     where: { topicSlug: { in: slugs } },
     orderBy: [{ topicSlug: "asc" }, { idx: "asc" }],
-    select: SECTION_SELECT,
+    select: SECTION_SELECT_WITH_POSTS,
   });
 
   const order = new Map(slugs.map((slug, index) => [slug, index]));
