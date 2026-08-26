@@ -14,7 +14,7 @@ const sidebarTopicRefSchema = z.object({
 const baseSidebarItemSchema = z.object({
   id: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1).max(120),
-  href: z.string().trim().min(1).max(255),
+  slug: z.string().trim().min(1).max(255),
   description: z.string().trim().max(500).optional(),
   idx: z.number().int().default(0),
   topicIds: z.array(z.string().trim().min(1)).default([]),
@@ -32,6 +32,17 @@ export const replaceSidebarItemsSchema = z.object({
   items: z.array(sidebarItemSchema),
 });
 
+/* Phân trang cho GET /sidebar — cả hai param đều tùy chọn (không truyền = lấy hết) */
+export const sidebarQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().max(50).optional(),
+  /** Chế độ phân trang: số mục con nhúng kèm mỗi mục gốc (mặc định 10) */
+  childrenLimit: z.coerce.number().int().min(0).max(20).optional(),
+  /** GET /sidebar/:id/children — lấy từ vị trí offset trở đi */
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
 export type CreateTopicInput = z.infer<typeof createTopicSchema>;
 export type UpdateTopicInput = z.infer<typeof updateTopicSchema>;
 export type ReplaceSidebarItemsInput = z.infer<typeof replaceSidebarItemsSchema>;
+export type SidebarQuery = z.infer<typeof sidebarQuerySchema>;

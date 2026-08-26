@@ -7,7 +7,7 @@ const blockSchema = z.record(z.string(), z.unknown());
 export const createPostSchema = z.object({
   title: z.string().trim().min(3, "Title must be at least 3 characters").max(200),
   excerpt: z.string().trim().max(500).optional(),
-  cover: z.string().trim().min(1).max(2048).optional(),
+  cover: z.string().trim().min(1).max(500000).optional(),
   bodyBlocks: z.array(blockSchema).default([]),
   status: postStatusSchema.default("draft"),
   topicIds: z.array(z.string().min(1)).default([]),
@@ -23,6 +23,14 @@ export const listPostsQuerySchema = z.object({
   q: z.string().trim().min(1).optional(),
   status: postStatusSchema.optional(),
   topicId: z.string().trim().min(1).optional(),
+  topicIds: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .refine((value) => !value || value.split(",").every((id) => id.trim().length > 0), {
+      message: "topicIds must be a comma-separated list of ids",
+    }),
   tagId: z.string().trim().min(1).optional(),
   sectionId: z.string().trim().min(1).optional(),
   authorId: z.coerce.number().int().positive().optional(),
@@ -35,6 +43,10 @@ export const idParamSchema = z.object({
 export const reactionParamSchema = z.object({
   id: z.string().trim().min(1),
   action: z.enum(["like", "bookmark"]),
+});
+
+export const toggleActionBodySchema = z.object({
+  active: z.boolean().default(true),
 });
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;

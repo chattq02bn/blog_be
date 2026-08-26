@@ -20,6 +20,24 @@ export const authenticate: RequestHandler = (req, _res, next) => {
   }
 };
 
+export const optionalAuth: RequestHandler = (req, _res, next) => {
+  const header = req.headers.authorization;
+
+  if (!header?.startsWith("Bearer ")) {
+    next();
+    return;
+  }
+
+  try {
+    const payload = verifyAccessToken(header.slice(7).trim());
+    req.user = { id: payload.sub, email: payload.email, name: payload.name, role: payload.role };
+  } catch {
+    // Token hết hạn/không hợp lệ vẫn cho đi tiếp như khách
+  }
+
+  next();
+};
+
 export const authorize =
   (...roles: UserRole[]): RequestHandler =>
   (req: Request, _res: Response, next: NextFunction) => {

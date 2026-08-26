@@ -19,8 +19,7 @@ export const listPosts = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const getPost = asyncHandler(async (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  const post = await postService.getPostById(id);
+  const post = await postService.getPostByIdOrSlug(String(req.params.id));
   res.json({ success: true, data: post });
 });
 
@@ -29,7 +28,7 @@ export const updatePost = asyncHandler(async (req: Request, res: Response) => {
     throw ApiError.unauthorized();
   }
 
-  const id = Number(req.params.id);
+  const id = String(req.params.id);
   const post = await postService.updatePost(id, req.user, req.body);
   res.json({ success: true, message: "Post updated", data: post });
 });
@@ -39,7 +38,16 @@ export const deletePost = asyncHandler(async (req: Request, res: Response) => {
     throw ApiError.unauthorized();
   }
 
-  const id = Number(req.params.id);
+  const id = String(req.params.id);
   await postService.deletePost(id, req.user);
   res.json({ success: true, message: "Post deleted" });
+});
+
+export const togglePostAction = asyncHandler(async (req: Request, res: Response) => {
+  const field = req.params.action === "like" ? "likes" : "bookmarks";
+  const result = await postService.toggleCounter(String(req.params.id), field, req.body.active);
+  res.json({
+    success: true,
+    data: { ...result, active: req.body.active },
+  });
 });

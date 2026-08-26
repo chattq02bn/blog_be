@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma.js";
+import { Prisma } from "../generated/prisma/client.js";
 import ApiError from "../utils/ApiError.js";
 import { slugify } from "../utils/slugify.js";
 import type { AuthUser } from "../types/auth.types.js";
@@ -12,9 +13,9 @@ type PostRow = {
   id: string;
   title: string;
   slug: string;
-  excerpt: string | null;
-  cover: string | null;
-  bodyBlocks: unknown;
+  excerpt?: string | null;
+  cover?: string | null;
+  bodyBlocks?: unknown;
   status: "DRAFT" | "PUBLISHED";
   likes: number;
   bookmarks: number;
@@ -22,10 +23,10 @@ type PostRow = {
   createdAt: Date;
   updatedAt: Date;
   authorId: number;
-  author: { id: number; name: string | null; email: string };
-  topics: { id: string; name: string }[];
-  tags: { id: string; name: string }[];
-  _count?: { comments: number };
+  author?: { id: number; name: string | null; email: string; avatar?: string | null } | null;
+  topics?: { id: string; name: string }[] | null;
+  tags?: { id: string; name: string }[] | null;
+  _count?: { comments: number } | null;
 };
 
 const POST_SELECT = {
@@ -42,31 +43,38 @@ const POST_SELECT = {
   authorId: true,
   createdAt: true,
   updatedAt: true,
-  author: { select: { id: true, name: true, email: true } },
+  author: { select: { id: true, name: true, email: true, avatar: true } },
   topics: { select: { id: true, name: true }, orderBy: { name: "asc" as const } },
   tags: { select: { id: true, name: true }, orderBy: { name: "asc" as const } },
   _count: { select: { comments: true } },
 } as const;
 
-function serializePost(post: PostRow) {
+export { POST_SELECT };
+
+export type SerializedPost = ReturnType<typeof serializePost>;
+
+export function serializePost(post: PostRow) {
+  const author = post.author ?? null;
+
   return {
     id: post.id,
     title: post.title,
     slug: post.slug,
-    excerpt: post.excerpt,
-    cover: post.cover,
+    excerpt: post.excerpt ?? null,
+    cover: post.cover ?? null,
     bodyBlocks: post.bodyBlocks ?? [],
     status: post.status === "PUBLISHED" ? ("published" as const) : ("draft" as const),
     likes: post.likes,
     bookmarks: post.bookmarks,
     commentsCount: post._count?.comments ?? 0,
     sectionId: post.sectionId,
-    topicIds: post.topics.map((topic) => topic.id),
-    tagIds: post.tags.map((tag) => tag.id),
-    topics: post.topics,
-    tags: post.tags,
-    author: post.author,
-    authorName: post.author.name ?? post.author.email,
+    topicIds: (post.topics ?? []).map((topic) => topic.id),
+    tagIds: (post.tags ?? []).map((tag) => tag.id),
+    topics: post.topics ?? [],
+    tags: post.tags ?? [],
+    author,
+    authorAvatar: author?.avatar ?? null,
+    authorName: author ? (author.name ?? author.email) : "Ẩn danh",
     date: post.createdAt.toISOString().slice(0, 10),
     createdAt: post.createdAt.toISOString(),
     updatedAt: post.updatedAt.toISOString(),
@@ -109,6 +117,13 @@ function buildWhere(query: ListPostsQuery) {
   if (query.topicId) {
     where.topics = { some: { id: query.topicId } };
   }
+  if (query.topicIds) {
+    const ids = query.topicIds.split(",").map((id) => id.trim()).filter(Boolean);
+    if (ids.length > 0) {
+      // Ghi đè điều kiện topicId đơn nếu có cả hai — ưu tiên danh sách nhiều topic.
+      where.topics = { some: { id: { in: ids } } };
+    }
+  }
   if (query.tagId) {
     where.tags = { some: { id: query.tagId } };
   }
@@ -131,7 +146,7 @@ async function createPost(authorId: number, input: CreatePostInput) {
       slug,
       excerpt: input.excerpt ?? null,
       cover: input.cover ?? null,
-      bodyBlocks: input.bodyBlocks,
+      bodyBlocks: input.bodyBlocks as unknown as Prisma.InputJsonValue[],
       status: input.status === "published" ? "PUBLISHED" : "DRAFT",
       sectionId: input.sectionId ?? null,
       authorId,

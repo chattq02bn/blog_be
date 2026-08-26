@@ -55,14 +55,11 @@ async function replaceTags(input: ReplaceTagsInput) {
   const result = await prisma.$transaction(async (tx) => {
     const keepIds = input.tags.filter((tag) => tag.id).map((tag) => tag.id as string);
 
-    await tx.tag.deleteMany(
-      keepIds.length > 0
-        ? { where: { id: { notIn: keepIds } } }
-        : { where: {} },
-    );
+    const deleteWhere = keepIds.length > 0 ? { id: { notIn: keepIds } } : {};
+    await tx.tag.deleteMany({ where: deleteWhere });
 
     const upserted = [];
-    for (const [index, tag] of input.tags.entries()) {
+    for (const tag of input.tags) {
       const saved = tag.id
         ? await tx.tag.upsert({
             where: { id: tag.id },
@@ -77,7 +74,6 @@ async function replaceTags(input: ReplaceTagsInput) {
       upserted.push(saved);
     }
 
-    void index;
     return upserted;
   });
 

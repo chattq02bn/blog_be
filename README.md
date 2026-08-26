@@ -64,11 +64,15 @@ CREATE DATABASE blog_db;
 
 ### 3. Cấu hình `.env`
 
-File `.env` đã được tạo sẵn. Chỉnh lại `DATABASE_URL` cho khớp với PostgreSQL của bạn:
+File `.env` đã được tạo sẵn. Chỉnh lại thông tin database cho khớp với PostgreSQL của bạn:
 
 ```env
 PORT=4000
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/blog_db?schema=public"
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=blog_db
 JWT_ACCESS_SECRET=<chuỗi ngẫu nhiên >= 32 ký tự>
 ```
 
