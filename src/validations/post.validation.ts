@@ -19,7 +19,7 @@ export const updatePostSchema = createPostSchema.partial();
 
 export const listPostsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(10),
+  limit: z.coerce.number().int().positive().max(200).default(10),
   q: z.string().trim().min(1).optional(),
   status: postStatusSchema.optional(),
   topicId: z.string().trim().min(1).optional(),
