@@ -1,22 +1,12 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`Missing environment variable: ${name}`);
-  }
-
-  return value;
-}
-
 function buildDatabaseUrl(): string {
-  const user = requiredEnv("DB_USER");
-  const password = requiredEnv("DB_PASSWORD");
-  const host = requiredEnv("DB_HOST");
-  const port = requiredEnv("DB_PORT");
-  const name = requiredEnv("DB_NAME");
+  const user = process.env.DB_USER ?? "postgres";
+  const password = process.env.DB_PASSWORD ?? "postgres";
+  const host = process.env.DB_HOST ?? "localhost";
+  const port = process.env.DB_PORT ?? "5432";
+  const name = process.env.DB_NAME ?? "blog_db";
 
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${name}?schema=public&sslmode=require`;
 }
