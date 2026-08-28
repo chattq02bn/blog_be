@@ -838,7 +838,7 @@ async function main() {
 
   /* Sinh ~200 bài viết cho MỖI section để test trang chi tiết section (infinite scroll) */
   console.log("[seed] Creating ~200 posts per section...");
-  const POSTS_PER_SECTION = 200;
+  const POSTS_PER_SECTION = 10;
   const sectionPostSubjects = [
     "Mẹo vặt hàng ngày", "Kinh nghiệm thực tế", "Checklist chuẩn bị",
     "So sánh các cách", "Lần đầu thử nghiệm", "Sai lầm thường gặp",
@@ -927,6 +927,17 @@ async function main() {
     "Lá thu vàng",
   ];
 
+  /* Tạo commenters từ guestNames */
+  const commenters = await Promise.all(
+    guestNames.map((nickname) =>
+      prisma.commenter.upsert({
+        where: { id: guestNames.indexOf(nickname) + 1 },
+        update: {},
+        create: { id: guestNames.indexOf(nickname) + 1, nickname, tokenHash: `seed-${nickname.toLowerCase().replace(/\s+/g, '-')}` },
+      })
+    )
+  );
+
   const commentPool = [
     "Bài viết rất hữu ích, cảm ơn tác giả nhiều nhé!",
     "Mình đã áp dụng thử một tuần và thấy hiệu quả thật sự!",
@@ -951,21 +962,16 @@ async function main() {
     "Chuẩn luôn, thêm chút kiên nhẫn là ổn thoy.",
   ];
 
-  /* Dữ liệu lớn để test: mỗi bài ~200 comment cha + hơn 200 reply (bulk insert) */
-  const COMMENTS_PER_POST = 200;
-  const REPLIES_PER_POST = 205;
+  /* Dữ liệu test: mỗi bài ~15 comment cha + 10 reply */
+  const COMMENTS_PER_POST = 15;
+  const REPLIES_PER_POST = 10;
 
   for (const [postIdx, post] of createdPosts.entries()) {
     const parentRows = Array.from({ length: COMMENTS_PER_POST }, (_, i) => {
-      const useGuest = i % 3 !== 0;
-      const member = authors[i % authors.length]!;
+      const commenter = commenters[i % commenters.length]!;
       return {
         postId: post.id,
-        ...(useGuest ? {} : { authorId: member.id }),
-        authorName: useGuest ? guestNames[i % guestNames.length]! : member.name ?? member.email,
-        authorAvatar: useGuest
-          ? `https://picsum.photos/seed/guest-${i % 8}/96/96`
-          : member.avatar,
+        commenterId: commenter.id,
         content: commentPool[i % commentPool.length]!,
         createdAt: new Date(Date.now() - ((postIdx * COMMENTS_PER_POST + i * 7) % 180) * 24 * 3600 * 1000),
       };
@@ -980,7 +986,7 @@ async function main() {
     const replyRows = Array.from({ length: REPLIES_PER_POST }, (_, i) => ({
       postId: post.id,
       parentId: createdParents[i % createdParents.length]!.id,
-      authorName: guestNames[(i + 2) % guestNames.length]!,
+      commenterId: commenters[(i + 2) % commenters.length]!.id,
       content: replyPool[i % replyPool.length]!,
       createdAt: new Date(Date.now() - ((i * 5) % 150) * 24 * 3600 * 1000),
     }));

@@ -123,7 +123,7 @@ async function main() {
     select: { id: true, slug: true },
   });
 
-  console.log("[seed-topic] Creating 120 posts...");
+  console.log("[seed-topic] Creating 250 posts...");
 
   const postTitles = [
     "Cách quản lý thời gian hiệu quả cho người bận rộn",
@@ -274,7 +274,7 @@ async function main() {
     "Chọn giày đúng cách giúp bạn thoải mái suốt 8 tiếng làm việc.",
   ];
 
-  const postsToCreate = 120;
+  const postsToCreate = 250;
   const createdPostIds: string[] = [];
 
   for (let i = 0; i < postsToCreate; i++) {
@@ -299,7 +299,7 @@ async function main() {
     const post = await prisma.post.create({
       data: {
         title,
-        slug: `${slugBase}-${(i + 1000).toString(36)}`,
+        slug: `${slugBase}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         excerpt: `${title} — bài viết chi tiết từ cộng đồng.`,
         cover: `https://picsum.photos/seed/topic-post-${i + 1}/1280/670`,
         bodyBlocks: generateBodyBlocks(i, title, intro) as unknown as Prisma.InputJsonValue[],

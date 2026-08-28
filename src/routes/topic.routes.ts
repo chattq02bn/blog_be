@@ -6,7 +6,7 @@ import {
   listTopics,
   updateTopic,
 } from "../controllers/topic.controller.js";
-import { listTopicSections, listSectionsBySlugs } from "../controllers/section.controller.js";
+import { listTopicSections, listTopicSectionsPaginated, listSectionsBySlugs } from "../controllers/section.controller.js";
 import validate from "../middlewares/validate.middleware.js";
 import { authenticate, authorize } from "../middlewares/auth.middleware.js";
 import {
@@ -27,6 +27,11 @@ const sectionsQuerySchema = z.object({
 
 router.get("/", listTopics);
 router.get("/sections", validate(sectionsQuerySchema, "query"), listSectionsBySlugs);
+router.get(
+  "/:slug/sections/paginated",
+  validate(slugParamSchema, "params"),
+  listTopicSectionsPaginated
+);
 router.get(
   "/:slug/sections",
   validate(slugParamSchema, "params"),

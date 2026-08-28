@@ -5,13 +5,10 @@ export const COMMENT_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡",
 export const createCommentSchema = z.object({
   content: z.string().trim().min(1, "Content is required").max(2000),
   parentId: z.string().trim().min(1).nullable().optional(),
-  authorName: z.string().trim().min(1).max(80).optional(),
-  authorAvatar: z.string().trim().max(500000).optional(),
 });
 
 export const updateCommentSchema = z.object({
   content: z.string().trim().min(1, "Content is required").max(2000),
-  authorName: z.string().trim().min(1).max(80).optional(),
 });
 
 export const reactionBodySchema = z.object({

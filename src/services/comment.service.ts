@@ -1,21 +1,17 @@
 import { prisma } from "../config/prisma.js";
 import ApiError from "../utils/ApiError.js";
-import type { AuthUser } from "../types/auth.types.js";
 import type {
   CreateCommentInput,
   ListCommentsQuery,
   UpdateCommentInput,
 } from "../validations/comment.validation.js";
 
-export type Viewer = Pick<AuthUser, "id" | "role"> | null;
-
 type CommentRow = {
   id: string;
   postId: string;
   parentId: string | null;
-  authorId: number | null;
-  authorName: string;
-  authorAvatar: string | null;
+  commenterId: number;
+  commenter: { id: number; nickname: string };
   content: string;
   isEdited: boolean;
   createdAt: Date;
@@ -24,7 +20,11 @@ type CommentRow = {
   _count?: { replies: number } | null;
 };
 
-function serializeComment(comment: CommentRow, viewer?: { id: number } | null) {
+function serializeComment(
+  comment: CommentRow,
+  viewer?: { id: number } | null,
+  parentMap?: Map<string, { commenter: { nickname: string } }>
+) {
   const counts = new Map<string, number>();
   const myReactions: string[] = [];
 
@@ -35,20 +35,27 @@ function serializeComment(comment: CommentRow, viewer?: { id: number } | null) {
     }
   }
 
+  let parentAuthor: string | undefined;
+  if (comment.parentId && parentMap) {
+    const parentRow = parentMap.get(comment.parentId);
+    if (parentRow) {
+      parentAuthor = parentRow.commenter.nickname;
+    }
+  }
+
   return {
     id: comment.id,
     noteId: comment.postId,
     parentId: comment.parentId,
-    authorId: comment.authorId,
-    author: comment.authorName,
-    authorAvatar: comment.authorAvatar,
+    commenterId: comment.commenterId,
+    author: comment.commenter.nickname,
+    parentAuthor,
     content: comment.content,
     isEdited: comment.isEdited,
     createdAt: comment.createdAt.toISOString(),
     updatedAt: comment.updatedAt.toISOString(),
     reactions: [...counts.entries()].map(([emoji, count]) => ({ emoji, count })),
     myReactions,
-    /** Số reply trực tiếp — FE dùng để hiển thị nút "Xem phản hồi" rồi load phân trang */
     repliesCount: comment._count?.replies ?? 0,
   };
 }
@@ -60,15 +67,17 @@ async function resolvePost(idOrSlug: string) {
     where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
     select: { id: true },
   });
-
-  if (!post) {
-    throw ApiError.notFound("Post not found");
-  }
-
+  if (!post) throw ApiError.notFound("Post not found");
   return post;
 }
 
-/** Danh sách bình luận gốc của bài viết — PHÂN TRANG, không kèm reply */
+const commentInclude = {
+  reactions: { select: { emoji: true, userId: true } },
+  commenter: { select: { id: true, nickname: true } },
+  _count: { select: { replies: true } },
+} as const;
+
+// --- listComments ---
 export async function listComments(
   postIdOrSlug: string,
   viewer?: { id: number } | null,
@@ -77,7 +86,7 @@ export async function listComments(
   const post = await resolvePost(postIdOrSlug);
   const page = query?.page ?? 1;
   const limit = query?.limit ?? 10;
-  const where = { postId: post.id, parentId: null };
+  const where = { postId: post.id, parentId: null as string | null };
 
   const [rows, total] = await Promise.all([
     prisma.comment.findMany({
@@ -85,10 +94,7 @@ export async function listComments(
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
-      include: {
-        reactions: { select: { emoji: true, userId: true } },
-        _count: { select: { replies: true } },
-      },
+      include: commentInclude,
     }),
     prisma.comment.count({ where }),
   ]);
@@ -99,7 +105,7 @@ export async function listComments(
   };
 }
 
-/** Reply trực tiếp của một comment — cũng phân trang */
+// --- listReplies: BFS all descendants, paginated ---
 export async function listReplies(
   commentId: string,
   viewer?: { id: number } | null,
@@ -109,158 +115,146 @@ export async function listReplies(
     where: { id: commentId },
     select: { id: true },
   });
-
-  if (!parent) {
-    throw ApiError.notFound("Comment not found");
-  }
+  if (!parent) throw ApiError.notFound("Comment not found");
 
   const page = query?.page ?? 1;
   const limit = query?.limit ?? 5;
-  const where = { parentId: commentId };
 
-  const [rows, total] = await Promise.all([
-    prisma.comment.findMany({
-      where,
-      orderBy: { createdAt: "asc" },
-      skip: (page - 1) * limit,
-      take: limit,
-      include: {
-        reactions: { select: { emoji: true, userId: true } },
-        _count: { select: { replies: true } },
-      },
-    }),
-    prisma.comment.count({ where }),
-  ]);
+  const allDescendantIds: string[] = [];
+  let frontier = [commentId];
+  while (frontier.length > 0) {
+    const children = await prisma.comment.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true },
+    });
+    const childIds = children.map((c) => c.id);
+    allDescendantIds.push(...childIds);
+    frontier = childIds;
+  }
+
+  if (allDescendantIds.length === 0) {
+    return { data: [], meta: { page, limit, total: 0, totalPages: 1 } };
+  }
+
+  const total = allDescendantIds.length;
+  const offset = (page - 1) * limit;
+  const pagedIds = allDescendantIds.slice(offset, offset + limit);
+
+  const rows = await prisma.comment.findMany({
+    where: { id: { in: pagedIds } },
+    orderBy: { createdAt: "asc" },
+    include: commentInclude,
+  });
+
+  /* Build parent map: id → row (bao gồm cả parent root + non-paged replies) */
+  const parentIds = new Set<string>();
+  for (const row of rows) {
+    if (row.parentId) parentIds.add(row.parentId);
+  }
+  const parentRows = parentIds.size > 0
+    ? await prisma.comment.findMany({
+        where: { id: { in: [...parentIds] } },
+        select: { id: true, commenter: { select: { nickname: true } } },
+      })
+    : [];
+  const parentMap = new Map(parentRows.map((r) => [r.id, r]));
 
   return {
-    data: rows.map((row) => serializeComment(row, viewer)),
+    data: rows.map((row) => serializeComment(row, viewer, parentMap)),
     meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   };
 }
 
+// --- createComment: requires commenter ---
 export async function createComment(
   postIdOrSlug: string,
-  viewer: Viewer,
+  commenterId: number,
   input: CreateCommentInput
 ): Promise<SerializedComment> {
   const post = await resolvePost(postIdOrSlug);
-
-  let authorName = input.authorName ?? null;
-  let authorAvatar = input.authorAvatar ?? null;
-  let authorId: number | null = null;
-
-  if (viewer) {
-    const user = await prisma.user.findUnique({
-      where: { id: viewer.id },
-      select: { name: true, email: true, avatar: true },
-    });
-
-    if (!user) {
-      throw ApiError.unauthorized();
-    }
-
-    authorId = viewer.id;
-    authorName = user.name ?? user.email;
-    authorAvatar = input.authorAvatar ?? user.avatar;
-  }
-
-  if (!authorName) {
-    throw ApiError.badRequest("Guest comments require authorName");
-  }
 
   if (input.parentId) {
     const parent = await prisma.comment.findFirst({
       where: { id: input.parentId, postId: post.id },
       select: { id: true },
     });
-    if (!parent) {
-      throw ApiError.badRequest("Parent comment not found for this post");
-    }
+    if (!parent) throw ApiError.badRequest("Parent comment not found for this post");
   }
 
   const created = await prisma.comment.create({
     data: {
       postId: post.id,
       parentId: input.parentId ?? null,
-      authorId,
-      authorName,
-      authorAvatar,
+      commenterId,
       content: input.content,
     },
-    include: { reactions: { select: { emoji: true, userId: true } } },
+    include: commentInclude,
   });
 
-  return serializeComment(created, viewer ? { id: viewer.id } : null);
-}
-
-function ensureCanManage(
-  comment: { authorId: number | null; authorName: string },
-  viewer: Viewer,
-  authorNameHint?: string
-): void {
-  if (!viewer) {
-    // Khách chỉ sửa/xóa được bình luận của chính mình khi khớp đúng tên đã dùng
-    if (
-      comment.authorId === null &&
-      authorNameHint !== undefined &&
-      authorNameHint === comment.authorName
-    ) {
-      return;
+  /* Build parentMap để trả parentAuthor */
+  let parentMap: Map<string, { commenter: { nickname: string } }> | undefined;
+  if (input.parentId) {
+    const parentRow = await prisma.comment.findUnique({
+      where: { id: input.parentId },
+      select: { id: true, commenter: { select: { nickname: true } } },
+    });
+    if (parentRow) {
+      parentMap = new Map([[parentRow.id, parentRow]]);
     }
-    throw ApiError.unauthorized("You are not allowed to modify this comment");
   }
 
-  if (comment.authorId !== viewer.id && viewer.role !== "ADMIN") {
+  return serializeComment(created, undefined, parentMap);
+}
+
+// --- Permission: check commenter owns comment ---
+function ensureCanManage(
+  comment: { commenterId: number },
+  commenterId: number
+): void {
+  if (comment.commenterId !== commenterId) {
     throw ApiError.forbidden("You are not allowed to modify this comment");
   }
 }
 
+// --- updateComment ---
 export async function updateComment(
   commentId: string,
-  viewer: Viewer,
+  commenterId: number,
   input: UpdateCommentInput
 ): Promise<SerializedComment> {
   const existing = await prisma.comment.findUnique({
     where: { id: commentId },
-    include: { reactions: { select: { emoji: true, userId: true } } },
+    include: { reactions: { select: { emoji: true, userId: true } }, commenter: { select: { id: true, nickname: true } } },
   });
+  if (!existing) throw ApiError.notFound("Comment not found");
 
-  if (!existing) {
-    throw ApiError.notFound("Comment not found");
-  }
-
-  ensureCanManage(existing, viewer, input.authorName);
+  ensureCanManage(existing, commenterId);
 
   const updated = await prisma.comment.update({
     where: { id: commentId },
-    data: {
-      content: input.content,
-      isEdited: true,
-    },
-    include: { reactions: { select: { emoji: true, userId: true } } },
+    data: { content: input.content, isEdited: true },
+    include: commentInclude,
   });
 
-  return serializeComment(updated, viewer ? { id: viewer.id } : null);
+  return serializeComment(updated);
 }
 
+// --- deleteComment ---
 export async function deleteComment(
   commentId: string,
-  viewer: Viewer,
-  authorNameHint?: string
+  commenterId: number
 ): Promise<void> {
   const existing = await prisma.comment.findUnique({
     where: { id: commentId },
-    select: { id: true, authorId: true, authorName: true },
+    select: { id: true, commenterId: true },
   });
+  if (!existing) throw ApiError.notFound("Comment not found");
 
-  if (!existing) {
-    throw ApiError.notFound("Comment not found");
-  }
-
-  ensureCanManage(existing, viewer, authorNameHint);
+  ensureCanManage(existing, commenterId);
   await prisma.comment.delete({ where: { id: commentId } });
 }
 
+// --- toggleReaction: Auth-only (regular user), toggle on/off ---
 export async function toggleReaction(
   commentId: string,
   viewer: { id: number },
@@ -270,10 +264,7 @@ export async function toggleReaction(
     where: { id: commentId },
     select: { id: true },
   });
-
-  if (!existing) {
-    throw ApiError.notFound("Comment not found");
-  }
+  if (!existing) throw ApiError.notFound("Comment not found");
 
   const reactionWhere = {
     commentId_userId_emoji: { commentId, userId: viewer.id, emoji },
@@ -297,15 +288,9 @@ export async function toggleReaction(
 
   const updated = await prisma.comment.findUnique({
     where: { id: commentId },
-    include: { reactions: { select: { emoji: true, userId: true } } },
+    include: commentInclude,
   });
+  if (!updated) throw ApiError.notFound("Comment not found");
 
-  if (!updated) {
-    throw ApiError.notFound("Comment not found");
-  }
-
-  return {
-    comment: serializeComment(updated, { id: viewer.id }),
-    active,
-  };
+  return { comment: serializeComment(updated, { id: viewer.id }), active };
 }

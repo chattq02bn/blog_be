@@ -85,3 +85,30 @@ export async function listSectionsByTopicSlugs(slugs: string[]) {
     )
     .map(serializeSection);
 }
+
+/** Phân trang sections theo topicSlug */
+export async function listSectionsByTopicSlugPaginated(
+  topicSlug: string,
+  page = 1,
+  limit = 5,
+) {
+  const skip = (page - 1) * limit;
+
+  const [sections, total] = await Promise.all([
+    prisma.section.findMany({
+      where: { topicSlug },
+      orderBy: { idx: "asc" },
+      skip,
+      take: limit,
+      select: SECTION_SELECT_WITH_POSTS,
+    }),
+    prisma.section.count({ where: { topicSlug } }),
+  ]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    data: sections.map(serializeSection),
+    meta: { page, limit, total, totalPages },
+  };
+}

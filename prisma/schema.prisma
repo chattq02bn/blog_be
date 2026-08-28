@@ -27,7 +27,6 @@ model User {
   logoName     String?
   description  String?
   posts        Post[]
-  comments     Comment[]
   reactions    CommentReaction[]
 
   createdAt DateTime @default(now())
@@ -117,26 +116,37 @@ model Post {
   @@map("posts")
 }
 
+model Commenter {
+  id        Int      @id @default(autoincrement())
+  nickname  String   @db.VarChar(80)
+  tokenHash String   @unique
+  comments  Comment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("commenters")
+}
+
 model Comment {
-  id           String   @id @default(cuid())
-  postId       String
-  post         Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  parentId     String?
-  parent       Comment? @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
-  replies      Comment[] @relation("CommentThread")
-  authorId     Int?
-  author       User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  authorName   String   @db.VarChar(80)
-  authorAvatar String?
-  content      String   @db.Text
-  isEdited     Boolean  @default(false)
-  reactions    CommentReaction[]
+  id          String    @id @default(cuid())
+  postId      String
+  post        Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[] @relation("CommentThread")
+  commenterId Int
+  commenter   Commenter @relation(fields: [commenterId], references: [id], onDelete: Cascade)
+  content     String    @db.Text
+  isEdited    Boolean   @default(false)
+  reactions   CommentReaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([postId, createdAt])
   @@index([parentId])
+  @@index([commenterId])
   @@map("comments")
 }
 

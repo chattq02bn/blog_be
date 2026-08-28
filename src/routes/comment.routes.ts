@@ -1,67 +1,54 @@
 import { Router } from "express";
 import {
-  listCommentReplies,
-  listPostComments,
-  patchComment,
-  postComment,
-  removeComment,
-  toggleCommentReaction,
+  listCommentReplies, listPostComments, patchComment,
+  postComment, removeComment, toggleCommentReaction,
 } from "../controllers/comment.controller.js";
 import validate from "../middlewares/validate.middleware.js";
 import { authenticate, optionalAuth } from "../middlewares/auth.middleware.js";
+import { authenticateCommenter, optionalCommenterAuth } from "../middlewares/commenterAuth.middleware.js";
 import {
-  createCommentSchema,
-  listCommentsQuerySchema,
-  reactionBodySchema,
-  updateCommentSchema,
+  createCommentSchema, listCommentsQuerySchema, reactionBodySchema, updateCommentSchema,
 } from "../validations/comment.validation.js";
 import { idParamSchema } from "../validations/post.validation.js";
 
 const router = Router();
 
-/* Bình luận của một bài viết: /comments/post/:postIdOrSlug?page=1&limit=10 */
-router.get(
-  "/post/:id",
-  optionalAuth,
+// GET  /comments/post/:id?page=1&limit=10
+router.get("/post/:id", optionalAuth,
   validate(idParamSchema, "params"),
   validate(listCommentsQuerySchema, "query"),
   listPostComments
 );
-router.post(
-  "/post/:id",
-  optionalAuth,
+
+// POST /comments/post/:id  (requires commenter token)
+router.post("/post/:id", authenticateCommenter,
   validate(idParamSchema, "params"),
   validate(createCommentSchema),
   postComment
 );
 
-router.get(
-  "/:id/replies",
-  optionalAuth,
+// GET  /comments/:id/replies
+router.get("/:id/replies", optionalAuth,
   validate(idParamSchema, "params"),
   validate(listCommentsQuerySchema, "query"),
   listCommentReplies
 );
 
-router.patch(
-  "/:id",
-  optionalAuth,
+// PATCH /comments/:id  (requires commenter token, owner only)
+router.patch("/:id", authenticateCommenter,
   validate(idParamSchema, "params"),
   validate(updateCommentSchema),
   patchComment
 );
 
-/* Khách xóa bình luận của mình bằng cách gửi kèm authorName trong body */
-router.delete(
-  "/:id",
-  optionalAuth,
+// DELETE /comments/:id  (requires commenter token, owner only)
+router.delete("/:id", authenticateCommenter,
   validate(idParamSchema, "params"),
   removeComment
 );
 
-router.post(
-  "/:id/reactions",
-  authenticate,
+// POST /comments/:id/reactions  (requires regular user login)
+router.post("/:id/reactions", authenticate,
   validate(idParamSchema, "params"),
   validate(reactionBodySchema),
   toggleCommentReaction
