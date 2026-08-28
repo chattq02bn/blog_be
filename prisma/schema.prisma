@@ -106,6 +106,7 @@ model Post {
   topics     Topic[]
   tags       Tag[]
   comments   Comment[]
+  postLikes  PostLike[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -121,6 +122,7 @@ model Commenter {
   nickname  String   @db.VarChar(80)
   tokenHash String   @unique
   comments  Comment[]
+  postLikes PostLike[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -170,4 +172,19 @@ model VisitStat {
 
   @@unique([month, day])
   @@map("visit_stats")
+}
+
+model PostLike {
+  id          Int      @id @default(autoincrement())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  commenterId Int
+  commenter   Commenter @relation(fields: [commenterId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([postId, commenterId])
+  @@index([postId])
+  @@index([commenterId])
+  @@map("post_likes")
 }

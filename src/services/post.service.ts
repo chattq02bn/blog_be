@@ -233,7 +233,7 @@ async function deletePost(id: string, requester: AuthUser): Promise<void> {
   await prisma.post.delete({ where: { id } });
 }
 
-async function toggleCounter(id: string, field: "likes" | "bookmarks", active: boolean) {
+async function toggleCounter(id: string, field: "likes" | "bookmarks", active: boolean, commenterId?: number) {
   const post = await prisma.post.findUnique({
     where: { id },
     select: { id: true, likes: true, bookmarks: true },
@@ -241,6 +241,26 @@ async function toggleCounter(id: string, field: "likes" | "bookmarks", active: b
 
   if (!post) {
     throw ApiError.notFound("Post not found");
+  }
+
+  if (field === "likes" && commenterId) {
+    if (active) {
+      await prisma.postLike.upsert({
+        where: { postId_commenterId: { postId: id, commenterId } },
+        create: { postId: id, commenterId },
+        update: {},
+      });
+    } else {
+      await prisma.postLike.deleteMany({
+        where: { postId: id, commenterId },
+      });
+    }
+    const actualCount = await prisma.postLike.count({ where: { postId: id } });
+    return prisma.post.update({
+      where: { id },
+      data: { likes: actualCount },
+      select: { id: true, likes: true, bookmarks: true },
+    });
   }
 
   const next = active ? post[field] + 1 : Math.max(0, post[field] - 1);
@@ -252,6 +272,15 @@ async function toggleCounter(id: string, field: "likes" | "bookmarks", active: b
   });
 }
 
+async function getLikedPostIds(commenterId: number, postIds: string[]): Promise<string[]> {
+  if (postIds.length === 0) return [];
+  const likes = await prisma.postLike.findMany({
+    where: { commenterId, postId: { in: postIds } },
+    select: { postId: true },
+  });
+  return likes.map((l) => l.postId);
+}
+
 export const postService = {
   createPost,
   listPosts,
@@ -259,4 +288,5 @@ export const postService = {
   updatePost,
   deletePost,
   toggleCounter,
+  getLikedPostIds,
 };

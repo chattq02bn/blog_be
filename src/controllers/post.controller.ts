@@ -66,9 +66,25 @@ export const deletePost = asyncHandler(async (req: Request, res: Response) => {
 
 export const togglePostAction = asyncHandler(async (req: Request, res: Response) => {
   const field = req.params.action === "like" ? "likes" : "bookmarks";
-  const result = await postService.toggleCounter(String(req.params.id), field, req.body.active);
+  const result = await postService.toggleCounter(
+    String(req.params.id),
+    field,
+    req.body.active,
+    req.commenter?.id
+  );
   res.json({
     success: true,
     data: { ...result, active: req.body.active },
   });
+});
+
+export const getLikedPostIds = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.commenter) {
+    res.json({ success: true, data: [] });
+    return;
+  }
+  const postIds = (req.query.postIds as string) ?? "";
+  const ids = postIds.split(",").map((s) => s.trim()).filter(Boolean);
+  const result = await postService.getLikedPostIds(req.commenter.id, ids);
+  res.json({ success: true, data: result });
 });
