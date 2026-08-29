@@ -1,8 +1,8 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
-import pkg from "@prisma/client";
-const { PrismaClient, Prisma } = pkg;
+import { PrismaClient } from "@prisma/client/edge.js";
+import type { Prisma } from "@prisma/client/edge.js";
 import env from "../src/config/env.js";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: env.databaseUrl }) });

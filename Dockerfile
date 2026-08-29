@@ -23,7 +23,13 @@ COPY scripts ./scripts
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build TypeScript (chỉ build src, không build prisma)
+# Debug: Kiểm tra Prisma Client
+RUN echo "=== Checking Prisma Client ===" && \
+    ls -la node_modules/.prisma/ || echo ".prisma not found" && \
+    ls -la node_modules/.prisma/client/ || echo ".prisma/client not found" && \
+    ls -la node_modules/@prisma/client/ || echo "@prisma/client not found"
+
+# Build TypeScript
 RUN npm run build
 
 # ---------- Stage 3: runtime ----------
@@ -33,7 +39,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Copy node_modules từ builder
+# Copy node_modules từ builder (GIỮ NGUYÊN)
 COPY --from=builder /app/node_modules ./node_modules
 
 # Copy Prisma schema và migrations
@@ -48,15 +54,20 @@ COPY --from=builder /app/scripts ./scripts
 # Copy prisma.config.ts
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
-# Copy source (để seed chạy được)
+# Copy source (cho seed)
 COPY --from=builder /app/src ./src
-COPY --from=builder /app/prisma ./prisma
 
 # Set environment
 ENV NODE_ENV=production
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
+# Debug: Kiểm tra lại Prisma Client
+RUN echo "=== Final check ===" && \
+    ls -la node_modules/.prisma/ || echo ".prisma not found" && \
+    ls -la node_modules/.prisma/client/ || echo ".prisma/client not found" && \
+    ls -la node_modules/@prisma/client/ || echo "@prisma/client not found"
+
 EXPOSE 4000
 
-# Start command - seed sẽ chạy bằng tsx (runtime, không cần build)
+# Start command
 CMD ["sh", "-c", "echo '=== Running migrations ===' && npx prisma migrate deploy && echo '=== Running seed ===' && npx tsx prisma/seed.ts && echo '=== Starting app ===' && node --enable-source-maps dist/src/server.js"]
