@@ -10,23 +10,27 @@ RUN npm ci --no-audit --no-fund
 FROM node:24-alpine AS builder
 WORKDIR /app
 
+# Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source code
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
 
-# Generate Prisma Client
+# ⚠️ QUAN TRỌNG: Generate Prisma Client TRƯỚC khi build
 RUN npx prisma generate
+
+# Debug: Kiểm tra Prisma Client đã được generate
+RUN echo "=== Checking Prisma Client ===" && \
+    ls -la node_modules/@prisma/client/ || echo "Not found in @prisma" && \
+    ls -la node_modules/.prisma/client/ || echo "Not found in .prisma" && \
+    cat node_modules/@prisma/client/package.json | grep version || echo "No package.json"
 
 # Build TypeScript
 RUN npm run build
-
-# Debug: Kiểm tra Prisma Client
-RUN echo "=== Checking Prisma Client ===" && \
-    ls -la node_modules/@prisma/client/ || echo "Not found in @prisma" && \
-    ls -la node_modules/.prisma/client/ || echo "Not found in .prisma"
 
 # ---------- Stage 3: runtime ----------
 FROM node:24-alpine AS runtime
@@ -35,7 +39,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Copy node_modules từ builder (đã có Prisma Client)
+# Copy node_modules từ builder (đã có Prisma Client và code build)
 COPY --from=builder /app/node_modules ./node_modules
 
 # Copy Prisma schema và migrations
@@ -55,12 +59,6 @@ ENV NODE_ENV=production
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
 EXPOSE 4000
-
-# Debug: Kiểm tra file
-RUN echo "=== Checking files ===" && \
-    ls -la /app/ && \
-    ls -la /app/prisma/ || echo "prisma folder not found" && \
-    ls -la /app/dist/src/lib/ || echo "lib not found"
 
 # Start command
 CMD ["sh", "-c", "echo '=== Running migrations ===' && npx prisma migrate deploy && echo '=== Running seed ===' && npx tsx prisma/seed.ts && echo '=== Starting app ===' && node --enable-source-maps dist/src/server.js"]
