@@ -11,7 +11,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "./src",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
@@ -23,6 +23,6 @@
     "skipLibCheck": true,
     "noImplicitOverride": true
   },
-  "include": ["src/**/*", "prisma/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],  // ← Chỉ build src
+  "exclude": ["node_modules", "dist", "prisma"]
 }
