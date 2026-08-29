@@ -1,7 +1,13 @@
-import "dotenv/config";
+// prisma.config.ts
 import { defineConfig } from "prisma/config";
 
-function buildDatabaseUrl(): string {
+function getDatabaseUrl(): string {
+  // Ưu tiên DATABASE_URL (Render)
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
+
+  // Fallback cho local
   const user = process.env.DB_USER ?? "postgres";
   const password = process.env.DB_PASSWORD ?? "postgres";
   const host = process.env.DB_HOST ?? "localhost";
@@ -20,6 +26,6 @@ export default defineConfig({
   },
 
   datasource: {
-    url: buildDatabaseUrl(),
+    url: getDatabaseUrl(),
   },
 });
