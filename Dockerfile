@@ -10,10 +10,8 @@ RUN npm ci --no-audit --no-fund
 FROM node:24-alpine AS builder
 WORKDIR /app
 
-# Copy dependencies
+# Copy dependencies và source
 COPY --from=deps /app/node_modules ./node_modules
-
-# Copy source code và config
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts tsconfig.json ./
@@ -30,16 +28,11 @@ RUN npm run build
 FROM node:24-alpine AS runtime
 WORKDIR /app
 
-# Chỉ cài production dependencies
-COPY package.json package-lock.json ./
-RUN npm ci --only=production --no-audit --no-fund
+# Copy toàn bộ node_modules từ builder (đã có Prisma Client)
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy Prisma schema và migrations
 COPY prisma ./prisma
-
-# Copy Prisma Client từ stage builder
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy code đã build
 COPY --from=builder /app/dist ./dist
