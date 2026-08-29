@@ -88,3 +88,25 @@ export const getLikedPostIds = asyncHandler(async (req: Request, res: Response) 
   const result = await postService.getLikedPostIds(req.commenter.id, ids);
   res.json({ success: true, data: result });
 });
+
+export const getPostLikeState = asyncHandler(async (req: Request, res: Response) => {
+  const postId = String(req.params.id);
+  const result = await postService.getPostLikeState(postId, req.commenter?.id);
+  res.json({ success: true, data: result });
+});
+
+export const togglePostLike = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.commenter) {
+    throw ApiError.unauthorized("Commenter token required");
+  }
+  const postId = String(req.params.id);
+  const result = await postService.togglePostLike(postId, req.commenter.id);
+  res.json({ success: true, data: result });
+});
+
+export const getBulkLikeStates = asyncHandler(async (req: Request, res: Response) => {
+  const postIds = (req.query.postIds as string) ?? "";
+  const ids = postIds.split(",").map((s) => s.trim()).filter(Boolean);
+  const result = await postService.getBulkLikeStates(ids, req.commenter?.id);
+  res.json({ success: true, data: result });
+});

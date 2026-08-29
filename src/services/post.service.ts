@@ -281,6 +281,90 @@ async function getLikedPostIds(commenterId: number, postIds: string[]): Promise<
   return likes.map((l) => l.postId);
 }
 
+async function togglePostLike(postId: string, commenterId: number) {
+  const post = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { id: true },
+  });
+  if (!post) throw ApiError.notFound("Post not found");
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.postLike.findUnique({
+      where: { postId_commenterId: { postId, commenterId } },
+      select: { id: true, isActive: true },
+    });
+
+    let isLiked: boolean;
+
+    if (existing) {
+      isLiked = !existing.isActive;
+      await tx.postLike.update({
+        where: { id: existing.id },
+        data: { isActive: isLiked },
+      });
+    } else {
+      isLiked = true;
+      await tx.postLike.create({
+        data: { postId, commenterId, isActive: true },
+      });
+    }
+
+    const likeCount = await tx.postLike.count({
+      where: { postId, isActive: true },
+    });
+
+    await tx.post.update({
+      where: { id: postId },
+      data: { likes: likeCount },
+    });
+
+    return { isLiked, likeCount };
+  });
+}
+
+async function getPostLikeState(postId: string, commenterId?: number) {
+  const post = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { id: true, likes: true },
+  });
+  if (!post) throw ApiError.notFound("Post not found");
+
+  let isLiked = false;
+  if (commenterId) {
+    const like = await prisma.postLike.findUnique({
+      where: { postId_commenterId: { postId, commenterId } },
+      select: { isActive: true },
+    });
+    isLiked = like?.isActive ?? false;
+  }
+
+  return { isLiked, likeCount: post.likes };
+}
+
+async function getBulkLikeStates(postIds: string[], commenterId?: number): Promise<Record<string, { isLiked: boolean; likeCount: number }>> {
+  if (postIds.length === 0) return {};
+
+  const posts = await prisma.post.findMany({
+    where: { id: { in: postIds } },
+    select: { id: true, likes: true },
+  });
+
+  let likedSet = new Set<string>();
+  if (commenterId && postIds.length > 0) {
+    const likes = await prisma.postLike.findMany({
+      where: { commenterId, postId: { in: postIds }, isActive: true },
+      select: { postId: true },
+    });
+    likedSet = new Set(likes.map((l) => l.postId));
+  }
+
+  const result: Record<string, { isLiked: boolean; likeCount: number }> = {};
+  for (const post of posts) {
+    result[post.id] = { isLiked: likedSet.has(post.id), likeCount: post.likes };
+  }
+  return result;
+}
+
 export const postService = {
   createPost,
   listPosts,
@@ -289,4 +373,7 @@ export const postService = {
   deletePost,
   toggleCounter,
   getLikedPostIds,
+  togglePostLike,
+  getPostLikeState,
+  getBulkLikeStates,
 };

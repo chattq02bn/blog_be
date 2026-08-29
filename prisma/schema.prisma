@@ -180,6 +180,7 @@ model PostLike {
   post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   commenterId Int
   commenter   Commenter @relation(fields: [commenterId], references: [id], onDelete: Cascade)
+  isActive    Boolean  @default(true)
 
   createdAt DateTime @default(now())
 

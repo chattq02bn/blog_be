@@ -4,14 +4,17 @@ import {
   deletePost,
   getPost,
   getLikedPostIds,
+  getPostLikeState,
   listPosts,
   listPostsBySection,
   togglePostAction,
+  togglePostLike,
   updatePost,
 } from "../controllers/post.controller.js";
 import validate from "../middlewares/validate.middleware.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
 import { optionalCommenterAuth } from "../middlewares/commenterAuth.middleware.js";
+import { optionalCommenterFromCookie, ensureCommenter } from "../middlewares/likeAuth.middleware.js";
 import {
   createPostSchema,
   idParamSchema,
@@ -28,6 +31,10 @@ router.get("/section/:sectionId", validate(listPostsBySectionSchema, "query"), l
 router.get("/liked", optionalCommenterAuth, getLikedPostIds);
 router.get("/", validate(listPostsQuerySchema, "query"), listPosts);
 router.get("/:id", validate(idParamSchema, "params"), getPost);
+
+router.get("/:id/like", optionalCommenterFromCookie, getPostLikeState);
+router.post("/:id/like", optionalCommenterFromCookie, ensureCommenter, togglePostLike);
+
 router.post(
   "/:id/:action",
   validate(reactionParamSchema, "params"),

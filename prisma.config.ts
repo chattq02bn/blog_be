@@ -14,7 +14,7 @@ function getDatabaseUrl(): string {
   const port = process.env.DB_PORT ?? "5432";
   const name = process.env.DB_NAME ?? "blog_db";
 
-  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${name}?schema=public&sslmode=require`;
+  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${name}?schema=public&sslmode=disable`;
 }
 
 export default defineConfig({
