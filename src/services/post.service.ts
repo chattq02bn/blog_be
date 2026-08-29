@@ -284,7 +284,7 @@ async function getLikedPostIds(commenterId: number, postIds: string[]): Promise<
 async function togglePostLike(postId: string, commenterId: number) {
   const post = await prisma.post.findUnique({
     where: { id: postId },
-    select: { id: true },
+    select: { id: true, likes: true },
   });
   if (!post) throw ApiError.notFound("Post not found");
 
@@ -309,9 +309,7 @@ async function togglePostLike(postId: string, commenterId: number) {
       });
     }
 
-    const likeCount = await tx.postLike.count({
-      where: { postId, isActive: true },
-    });
+    const likeCount = isLiked ? post.likes + 1 : Math.max(0, post.likes - 1);
 
     await tx.post.update({
       where: { id: postId },
