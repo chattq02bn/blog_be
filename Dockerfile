@@ -24,22 +24,29 @@ RUN npm run build
 FROM node:24-alpine AS runtime
 WORKDIR /app
 
+# Copy package.json và package-lock.json
+COPY package.json package-lock.json ./
+
+# Copy toàn bộ node_modules (đã có Prisma Client và dependencies)
 COPY --from=builder /app/node_modules ./node_modules
+
+# Copy Prisma schema và migrations
 COPY prisma ./prisma
+
+# Copy code đã build
 COPY --from=builder /app/dist ./dist
+
+# Copy scripts nếu có
 COPY --from=builder /app/scripts ./scripts
+
+# Copy prisma.config.ts nếu có
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
+# Set environment
 ENV NODE_ENV=production
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
 EXPOSE 4000
 
-# Debug: In ra biến môi trường (ẩn password)
-RUN echo "DB_USER: ${DB_USER}" && \
-    echo "DB_HOST: ${DB_HOST}" && \
-    echo "DB_NAME: ${DB_NAME}" && \
-    echo "DATABASE_URL exists: ${DATABASE_URL:+yes}"
-
 # Start command
-CMD ["sh", "-c", "echo '=== Checking environment variables ===' && echo 'DATABASE_URL:' ${DATABASE_URL:+exists} && echo 'DB_USER:' ${DB_USER:-not set} && echo 'DB_HOST:' ${DB_HOST:-not set} && echo 'DB_NAME:' ${DB_NAME:-not set} && echo '=== Running migrations ===' && npx prisma migrate deploy && echo '=== Running seed ===' && npm run db:seed && echo '=== Starting app ===' && node --enable-source-maps dist/src/server.js"]
+CMD ["sh", "-c", "echo '=== Checking environment variables ===' && echo 'DATABASE_URL:' ${DATABASE_URL:+exists} && echo 'DB_USER:' ${DB_USER:-not set} && echo '=== Running migrations ===' && npx prisma migrate deploy && echo '=== Running seed ===' && npm run db:seed && echo '=== Starting app ===' && node --enable-source-maps dist/src/server.js"]
