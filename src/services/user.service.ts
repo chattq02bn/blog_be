@@ -1,12 +1,12 @@
 import { prisma } from "../config/prisma.js";
 import ApiError from "../utils/ApiError.js";
-import { hashPassword } from "../utils/password.util.js";
+import { hashPassword, comparePassword } from "../utils/password.util.js";
 import type {
   CreateUserInput,
   ListUsersQuery,
   UpdateUserInput,
 } from "../validations/user.validation.js";
-import type { UpdateProfileInput } from "../validations/profile.validation.js";
+import type { UpdateProfileInput, ChangePasswordInput } from "../validations/profile.validation.js";
 
 const USER_SELECT = {
   id: true,
@@ -18,7 +18,7 @@ const USER_SELECT = {
   description: true,
   createdAt: true,
   updatedAt: true,
-  _count: { select: { posts: true, comments: true } },
+  _count: { select: { posts: true, reactions: true } },
 } as const;
 
 function serializeUser(user: {
@@ -31,7 +31,7 @@ function serializeUser(user: {
   description: string | null;
   createdAt: Date;
   updatedAt: Date;
-  _count?: { posts: number; comments: number };
+  _count?: { posts: number; reactions: number };
 }) {
   return {
     id: String(user.id),
@@ -42,7 +42,7 @@ function serializeUser(user: {
     logoName: user.logoName,
     description: user.description,
     postsCount: user._count?.posts ?? 0,
-    commentsCount: user._count?.comments ?? 0,
+    reactionsCount: user._count?.reactions ?? 0,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -179,4 +179,29 @@ export async function updateProfile(userId: number, input: UpdateProfileInput) {
   });
 
   return serializeUser(user);
+}
+
+export async function changePassword(
+  userId: number,
+  input: ChangePasswordInput,
+): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+
+  if (!user) {
+    throw ApiError.notFound("User not found");
+  }
+
+  const valid = await comparePassword(input.currentPassword, user.passwordHash);
+  if (!valid) {
+    throw ApiError.badRequest("Mật khẩu hiện tại không đúng");
+  }
+
+  const newHash = await hashPassword(input.newPassword);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: newHash },
+  });
 }

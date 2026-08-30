@@ -11,6 +11,14 @@ export const profileSchema = z.object({
 
 export const updateProfileSchema = profileSchema.partial();
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Mật khẩu hiện tại là bắt buộc"),
+  newPassword: z
+    .string()
+    .min(8, "Mật khẩu mới phải có ít nhất 8 ký tự")
+    .max(72, "Mật khẩu mới tối đa 72 ký tự"),
+});
+
 export const visitsQuerySchema = z.object({
   month: z
     .string()
@@ -19,3 +27,4 @@ export const visitsQuerySchema = z.object({
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

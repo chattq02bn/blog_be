@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import {
+  changePassword,
   createUser,
   deleteUser,
   getProfile,
@@ -56,4 +57,13 @@ export const patchMyProfile = asyncHandler(async (req: Request, res: Response) =
 
   const profile = await updateProfile(req.user.id, req.body);
   res.json({ success: true, message: "Profile updated", data: profile });
+});
+
+export const changeMyPassword = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) {
+    throw ApiError.unauthorized();
+  }
+
+  await changePassword(req.user.id, req.body);
+  res.json({ success: true, message: "Đổi mật khẩu thành công" });
 });

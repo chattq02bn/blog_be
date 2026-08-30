@@ -189,3 +189,17 @@ model PostLike {
   @@index([commenterId])
   @@map("post_likes")
 }
+
+model SocialLink {
+  id        Int      @id @default(autoincrement())
+  platform  String   @db.VarChar(30)
+  url       String   @db.VarChar(500)
+  isActive  Boolean  @default(true)
+  idx       Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([platform])
+  @@map("social_links")
+}
