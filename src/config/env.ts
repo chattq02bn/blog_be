@@ -28,9 +28,10 @@ if (!parsed.success) {
 
 const data = parsed.data;
 
-const databaseUrl = `postgresql://${encodeURIComponent(data.DB_USER)}:${encodeURIComponent(
-  data.DB_PASSWORD,
-)}@${data.DB_HOST}:${data.DB_PORT}/${data.DB_NAME}?schema=public`;
+const databaseUrl = process.env.DATABASE_URL
+  || `postgresql://${encodeURIComponent(data.DB_USER)}:${encodeURIComponent(
+    data.DB_PASSWORD,
+  )}@${data.DB_HOST}:${data.DB_PORT}/${data.DB_NAME}?schema=public`;
 
 const env = { ...data, databaseUrl };
 
