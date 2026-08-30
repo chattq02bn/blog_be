@@ -25,9 +25,9 @@ RUN npx prisma generate
 
 # Debug: Kiểm tra Prisma Client
 RUN echo "=== Checking Prisma Client ===" && \
-    ls -la node_modules/.prisma/ || echo ".prisma not found" && \
-    ls -la node_modules/.prisma/client/ || echo ".prisma/client not found" && \
-    ls -la node_modules/@prisma/client/ || echo "@prisma/client not found"
+  ls -la node_modules/.prisma/ || echo ".prisma not found" && \
+  ls -la node_modules/.prisma/client/ || echo ".prisma/client not found" && \
+  ls -la node_modules/@prisma/client/ || echo "@prisma/client not found"
 
 # Build TypeScript
 RUN npm run build
@@ -62,9 +62,9 @@ ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
 # Debug: Kiểm tra lại Prisma Client
 RUN echo "=== Final check ===" && \
-    ls -la node_modules/.prisma/ || echo ".prisma not found" && \
-    ls -la node_modules/.prisma/client/ || echo ".prisma/client not found" && \
-    ls -la node_modules/@prisma/client/ || echo "@prisma/client not found"
+  ls -la node_modules/.prisma/ || echo ".prisma not found" && \
+  ls -la node_modules/.prisma/client/ || echo ".prisma/client not found" && \
+  ls -la node_modules/@prisma/client/ || echo "@prisma/client not found"
 
 EXPOSE 4000
 
@@ -73,11 +73,11 @@ CMD ["sh", "-c", "\
   echo '=== Running migrations ===' && \
   npx prisma migrate deploy && \
   if [ \"$NODE_ENV\" = \"development\" ]; then \
-    echo '=== Running seed (development) ===' && \
-    npx tsx prisma/seed.ts; \
+  echo '=== Running seed (development) ===' && \
+  npx tsx prisma/seed.ts; \
   else \
-    echo '=== Skipping seed (production) ==='; \
+  echo '=== Skipping seed (production) ==='; \
   fi && \
   echo '=== Starting app ===' && \
   node --enable-source-maps dist/server.js \
-"]
+  "]
