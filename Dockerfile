@@ -58,7 +58,6 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/src ./src
 
 # Set environment
-ENV NODE_ENV=production
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
 # Debug: Kiểm tra lại Prisma Client
@@ -69,5 +68,16 @@ RUN echo "=== Final check ===" && \
 
 EXPOSE 4000
 
-# Start command
-CMD ["sh", "-c", "echo '=== Running migrations ===' && npx prisma migrate deploy && echo '=== Running seed ===' && npx tsx prisma/seed.ts && echo '=== Starting app ===' && node --enable-source-maps dist/src/server.js"]
+# Start command: chạy migrate → seed (chỉ dev) → start app
+CMD ["sh", "-c", "\
+  echo '=== Running migrations ===' && \
+  npx prisma migrate deploy && \
+  if [ \"$NODE_ENV\" = \"development\" ]; then \
+    echo '=== Running seed (development) ===' && \
+    npx tsx prisma/seed.ts; \
+  else \
+    echo '=== Skipping seed (production) ==='; \
+  fi && \
+  echo '=== Starting app ===' && \
+  node --enable-source-maps dist/src/server.js \
+"]
