@@ -68,28 +68,33 @@ function richBlocks(index: number, intro: string): Block[] {
 async function main() {
   console.log("[seed] Cleaning up old data...");
 
-  const safeDelete = async (label: string, fn: () => Promise<unknown>) => {
+  const tables = [
+    "comment_reactions",
+    "post_likes",
+    "comments",
+    "posts",
+    "sections",
+    "sidebar_items",
+    "topics",
+    "tags",
+    "visit_stats",
+    "social_links",
+    "site_configs",
+    "users",
+  ];
+
+  for (const table of tables) {
     try {
-      await fn();
+      await prisma.$executeRawUnsafe(`DELETE FROM "${table}"`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("denied") || msg.includes("permission")) {
-        console.log(`[seed] Skip ${label} (no delete permission)`);
+      if (msg.includes("denied") || msg.includes("permission") || msg.includes("does not exist")) {
+        console.log(`[seed] Skip ${table} (${msg.includes("does not exist") ? "table not found" : "no delete permission"})`);
       } else {
         throw e;
       }
     }
-  };
-
-  await safeDelete("commentReaction", () => prisma.commentReaction.deleteMany());
-  await safeDelete("comment", () => prisma.comment.deleteMany());
-  await safeDelete("post", () => prisma.post.deleteMany());
-  await safeDelete("section", () => prisma.section.deleteMany());
-  await safeDelete("sidebarItem", () => prisma.sidebarItem.deleteMany());
-  await safeDelete("topic", () => prisma.topic.deleteMany());
-  await safeDelete("tag", () => prisma.tag.deleteMany());
-  await safeDelete("visitStat", () => prisma.visitStat.deleteMany());
-  await safeDelete("user", () => prisma.user.deleteMany());
+  }
 
   console.log("[seed] Creating users...");
   const passwordHash = await bcrypt.hash("Password123!", 10);
