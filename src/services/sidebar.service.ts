@@ -1,6 +1,6 @@
 import { prisma } from "../config/prisma.js";
 import ApiError from "../utils/ApiError.js";
-import type { ReplaceSidebarItemsInput } from "../validations/topic.validation.js";
+import type { CreateSidebarItemInput, ReplaceSidebarItemsInput } from "../validations/topic.validation.js";
 
 type SidebarNode = {
   id: string;
@@ -9,6 +9,7 @@ type SidebarNode = {
   description: string | null;
   idx: number;
   topicIds: string[];
+  postCount: number;
   children: SidebarNode[];
   /** Số mục con trực tiếp (có cả khi children được lồng đầy đủ) */
   childrenCount?: number;
@@ -22,7 +23,7 @@ function serializeRow(
     description: string | null;
     idx: number;
     parentId?: string | null;
-    topics: { id: string }[];
+    topics: { id: string; _count?: { posts: number } | null }[];
     _count?: { children: number } | null;
   }
 ): SidebarNode {
@@ -33,6 +34,7 @@ function serializeRow(
     description: row.description,
     idx: row.idx,
     topicIds: row.topics.map((topic) => topic.id),
+    postCount: row.topics.reduce((sum, topic) => sum + (topic._count?.posts ?? 0), 0),
     children: [],
     /** Số mục con trực tiếp — FE dùng để hiển thị nút mở rộng rồi load phân trang */
     childrenCount: row._count?.children ?? 0,
@@ -40,7 +42,7 @@ function serializeRow(
 }
 
 const SIDEBAR_INCLUDE = {
-  topics: { select: { id: true } },
+  topics: { select: { id: true, _count: { select: { posts: true } } } },
   _count: { select: { children: true } },
 } as const;
 
@@ -182,6 +184,32 @@ export async function listSidebarChildren(
     rows: rows.map((row) => serializeRow(row)),
     meta: { offset, limit, total },
   };
+}
+
+export async function createSidebarItem(input: CreateSidebarItemInput): Promise<SidebarNode> {
+  const parentId = input.parentId ?? null;
+
+  if (parentId) {
+    await prisma.$executeRaw`UPDATE sidebar_items SET idx = idx + 1 WHERE "parentId" = ${parentId}`;
+  } else {
+    await prisma.$executeRaw`UPDATE sidebar_items SET idx = idx + 1 WHERE "parentId" IS NULL`;
+  }
+
+  const item = await prisma.sidebarItem.create({
+    data: {
+      name: input.name,
+      slug: input.slug,
+      description: input.description ?? null,
+      idx: 0,
+      ...(input.parentId ? { parentId: input.parentId } : {}),
+      ...(input.topicIds.length > 0
+        ? { topics: { connect: input.topicIds.map((id) => ({ id })) } }
+        : {}),
+    },
+    include: SIDEBAR_INCLUDE,
+  });
+
+  return serializeRow(item);
 }
 
 export async function replaceSidebarItems(input: ReplaceSidebarItemsInput): Promise<SidebarNode[]> {

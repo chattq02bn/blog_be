@@ -11,7 +11,7 @@ function serializeTag(tag: { id: string; name: string }) {
 }
 
 async function listTags() {
-  const tags = await prisma.tag.findMany({ orderBy: { createdAt: "asc" } });
+  const tags = await prisma.tag.findMany({ orderBy: { createdAt: "desc" } });
   return tags.map(serializeTag);
 }
 

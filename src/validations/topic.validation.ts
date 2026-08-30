@@ -46,3 +46,12 @@ export type CreateTopicInput = z.infer<typeof createTopicSchema>;
 export type UpdateTopicInput = z.infer<typeof updateTopicSchema>;
 export type ReplaceSidebarItemsInput = z.infer<typeof replaceSidebarItemsSchema>;
 export type SidebarQuery = z.infer<typeof sidebarQuerySchema>;
+export type CreateSidebarItemInput = z.infer<typeof createSidebarItemSchema>;
+
+export const createSidebarItemSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  slug: z.string().trim().min(1).max(255),
+  description: z.string().trim().max(500).optional(),
+  topicIds: z.array(z.string().trim().min(1)).default([]),
+  parentId: z.string().trim().min(1).optional(),
+});

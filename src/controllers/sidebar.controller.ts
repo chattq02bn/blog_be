@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import {
+  createSidebarItem,
   replaceSidebarItems,
   listSidebarChildren,
   listSidebarItems,
@@ -20,6 +21,11 @@ export const getSidebarChildren = asyncHandler(async (req: Request, res: Respons
     req.query as unknown as SidebarQuery
   );
   res.json({ success: true, data: rows, meta });
+});
+
+export const postSidebarItem = asyncHandler(async (req: Request, res: Response) => {
+  const item = await createSidebarItem(req.body);
+  res.status(201).json({ success: true, message: "Tạo mục sidebar thành công", data: item });
 });
 
 export const putSidebar = asyncHandler(async (req: Request, res: Response) => {

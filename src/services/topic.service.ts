@@ -4,7 +4,7 @@ import type { CreateTopicInput, UpdateTopicInput } from "../validations/topic.va
 
 async function listTopics() {
   const topics = await prisma.topic.findMany({
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { posts: true } },
     },

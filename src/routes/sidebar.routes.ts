@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getSidebar,
   getSidebarChildren,
+  postSidebarItem,
   putSidebar,
 } from "../controllers/sidebar.controller.js";
 import validate from "../middlewares/validate.middleware.js";
@@ -11,6 +12,7 @@ import {
   idParamSchema,
 } from "../validations/post.validation.js";
 import {
+  createSidebarItemSchema,
   replaceSidebarItemsSchema,
   sidebarQuerySchema,
 } from "../validations/topic.validation.js";
@@ -29,6 +31,7 @@ router.get(
   getSidebarChildren
 );
 
+router.post("/", authenticate, authorize("ADMIN"), validate(createSidebarItemSchema), postSidebarItem);
 router.put("/", authenticate, authorize("ADMIN"), validate(replaceSidebarItemsSchema), putSidebar);
 
 export default router;
