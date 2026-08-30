@@ -94,7 +94,7 @@ export async function listSectionsByTopicSlugPaginated(
 ) {
   const skip = (page - 1) * limit;
 
-  const [sections, total] = await Promise.all([
+  const [sections, total, sidebarItem] = await Promise.all([
     prisma.section.findMany({
       where: { topicSlug },
       orderBy: { idx: "asc" },
@@ -103,12 +103,20 @@ export async function listSectionsByTopicSlugPaginated(
       select: SECTION_SELECT_WITH_POSTS,
     }),
     prisma.section.count({ where: { topicSlug } }),
+    prisma.sidebarItem.findFirst({
+      where: { slug: topicSlug },
+      select: {
+        topics: { select: { name: true, description: true }, take: 1 },
+      },
+    }),
   ]);
 
   const totalPages = Math.ceil(total / limit);
+  const topic = sidebarItem?.topics[0] ?? null;
 
   return {
     data: sections.map(serializeSection),
     meta: { page, limit, total, totalPages },
+    topic: topic ? { name: topic.name, description: topic.description ?? "" } : null,
   };
 }
