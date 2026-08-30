@@ -6,6 +6,7 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from "../utils/jwt.util.js";
+import { sendResetPasswordEmail } from "./mail.service.js";
 import type { AuthUser } from "../types/auth.types.js";
 import type { LoginInput, RegisterInput } from "../validations/auth.validation.js";
 
@@ -90,4 +91,23 @@ async function refresh(refreshToken: string): Promise<{
   return { user: authUser, ...tokens };
 }
 
-export const authService = { register, login, refresh, toAuthUser };
+async function forgotPassword(email: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw ApiError.notFound("Email không tồn tại trong hệ thống");
+  }
+
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let newPassword = "";
+  for (let i = 0; i < 10; i++) {
+    newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+
+  const name = user.name || user.email;
+  await sendResetPasswordEmail(user.email, name, newPassword);
+}
+
+export const authService = { register, login, refresh, forgotPassword, toAuthUser };

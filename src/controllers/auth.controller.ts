@@ -37,3 +37,9 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
 
   res.json({ success: true, data: payload });
 });
+
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { email } = req.body;
+  await authService.forgotPassword(email);
+  res.json({ success: true, message: "Nếu email tồn tại, mật khẩu mới đã được gửi" });
+});

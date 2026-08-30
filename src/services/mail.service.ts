@@ -86,3 +86,29 @@ export async function sendWelcomeEmail(
     return false;
   }
 }
+
+export async function sendResetPasswordEmail(
+  to: string,
+  name: string,
+  newPassword: string,
+): Promise<boolean> {
+  const transporter = await createTransporter();
+  if (!transporter) return false;
+
+  let template = loadTemplate("reset-password.html");
+  template = template.replace("{{NAME}}", name);
+  template = template.replace("{{EMAIL}}", to);
+  template = template.replace("{{PASSWORD}}", newPassword);
+
+  try {
+    await transporter.sendMail({
+      from: `"Note" <${(await getMailConfig()).email}>`,
+      to,
+      subject: "Note — Mật khẩu mới của bạn",
+      html: template,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
