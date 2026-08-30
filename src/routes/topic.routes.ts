@@ -11,6 +11,7 @@ import validate from "../middlewares/validate.middleware.js";
 import { authenticate, authorize } from "../middlewares/auth.middleware.js";
 import {
   createTopicSchema,
+  listTopicsQuerySchema,
   updateTopicSchema,
 } from "../validations/topic.validation.js";
 import { idParamSchema } from "../validations/post.validation.js";
@@ -25,7 +26,7 @@ const sectionsQuerySchema = z.object({
   slugs: z.string().trim().min(1, "Query 'slugs' is required").max(2000),
 });
 
-router.get("/", listTopics);
+router.get("/", validate(listTopicsQuerySchema, "query"), listTopics);
 router.get("/sections", validate(sectionsQuerySchema, "query"), listSectionsBySlugs);
 router.get(
   "/:slug/sections/paginated",

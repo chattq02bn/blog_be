@@ -2,6 +2,7 @@ import { prisma } from "../config/prisma.js";
 import ApiError from "../utils/ApiError.js";
 import type {
   CreateTagInput,
+  ListTagsQuery,
   ReplaceTagsInput,
   UpdateTagInput,
 } from "../validations/tag.validation.js";
@@ -10,9 +11,27 @@ function serializeTag(tag: { id: string; name: string }) {
   return { id: tag.id, name: tag.name };
 }
 
-async function listTags() {
-  const tags = await prisma.tag.findMany({ orderBy: { createdAt: "desc" } });
-  return tags.map(serializeTag);
+async function listTags(query?: ListTagsQuery) {
+  const page = query?.page ?? 1;
+  const limit = query?.limit ?? 20;
+  const where = query?.q
+    ? { name: { contains: query.q, mode: "insensitive" as const } }
+    : {};
+
+  const [tags, total] = await Promise.all([
+    prisma.tag.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.tag.count({ where }),
+  ]);
+
+  return {
+    data: tags.map(serializeTag),
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
 }
 
 async function createTag(input: CreateTagInput) {

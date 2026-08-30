@@ -77,6 +77,7 @@ const Post = {
     author: { $ref: "#/components/schemas/AuthorRef" },
     authorAvatar: { type: "string", nullable: true },
     authorName: { type: "string", example: "Lan" },
+    authorDescription: { type: "string", nullable: true },
     date: { type: "string", example: "2026-08-25", description: "YYYY-MM-DD từ createdAt" },
     createdAt: { type: "string", format: "date-time" },
     updatedAt: { type: "string", format: "date-time" },

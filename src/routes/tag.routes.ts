@@ -10,6 +10,7 @@ import validate from "../middlewares/validate.middleware.js";
 import { authenticate, authorize } from "../middlewares/auth.middleware.js";
 import {
   createTagSchema,
+  listTagsQuerySchema,
   replaceTagsSchema,
   updateTagSchema,
 } from "../validations/tag.validation.js";
@@ -17,7 +18,7 @@ import { idParamSchema } from "../validations/post.validation.js";
 
 const router = Router();
 
-router.get("/", listTags);
+router.get("/", validate(listTagsQuerySchema, "query"), listTags);
 router.post("/", authenticate, authorize("ADMIN"), validate(createTagSchema), createTag);
 router.put("/", authenticate, authorize("ADMIN"), validate(replaceTagsSchema), replaceTags);
 router.patch(

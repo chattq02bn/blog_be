@@ -15,6 +15,13 @@ export const replaceTagsSchema = z.object({
   ),
 });
 
+export const listTagsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  q: z.string().trim().min(1).optional(),
+});
+
 export type CreateTagInput = z.infer<typeof createTagSchema>;
 export type UpdateTagInput = z.infer<typeof updateTagSchema>;
 export type ReplaceTagsInput = z.infer<typeof replaceTagsSchema>;
+export type ListTagsQuery = z.infer<typeof listTagsQuerySchema>;

@@ -23,7 +23,7 @@ type PostRow = {
   createdAt: Date;
   updatedAt: Date;
   authorId: number;
-  author?: { id: number; name: string | null; email: string; avatar?: string | null } | null;
+  author?: { id: number; name: string | null; email: string; avatar?: string | null; description?: string | null } | null;
   topics?: { id: string; name: string }[] | null;
   tags?: { id: string; name: string }[] | null;
   _count?: { comments: number } | null;
@@ -43,7 +43,7 @@ const POST_SELECT = {
   authorId: true,
   createdAt: true,
   updatedAt: true,
-  author: { select: { id: true, name: true, email: true, avatar: true } },
+  author: { select: { id: true, name: true, email: true, avatar: true, description: true } },
   topics: { select: { id: true, name: true }, orderBy: { name: "asc" as const } },
   tags: { select: { id: true, name: true }, orderBy: { name: "asc" as const } },
   _count: { select: { comments: true } },
@@ -75,6 +75,7 @@ export function serializePost(post: PostRow) {
     author,
     authorAvatar: author?.avatar ?? null,
     authorName: author ? (author.name ?? author.email) : "Ẩn danh",
+    authorDescription: author?.description ?? null,
     date: post.createdAt.toISOString().slice(0, 10),
     createdAt: post.createdAt.toISOString(),
     updatedAt: post.updatedAt.toISOString(),

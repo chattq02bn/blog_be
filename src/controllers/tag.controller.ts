@@ -1,10 +1,11 @@
 import type { Request, Response } from "express";
 import { tagService } from "../services/tag.service.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import type { ListTagsQuery } from "../validations/tag.validation.js";
 
-export const listTags = asyncHandler(async (_req: Request, res: Response) => {
-  const tags = await tagService.listTags();
-  res.json({ success: true, data: tags });
+export const listTags = asyncHandler(async (req: Request, res: Response) => {
+  const result = await tagService.listTags(req.query as unknown as ListTagsQuery);
+  res.json({ success: true, data: result.data, meta: result.meta });
 });
 
 export const createTag = asyncHandler(async (req: Request, res: Response) => {

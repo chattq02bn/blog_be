@@ -1,10 +1,11 @@
 import type { Request, Response } from "express";
 import { topicService } from "../services/topic.service.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import type { ListTopicsQuery } from "../validations/topic.validation.js";
 
-export const listTopics = asyncHandler(async (_req: Request, res: Response) => {
-  const topics = await topicService.listTopics();
-  res.json({ success: true, data: topics });
+export const listTopics = asyncHandler(async (req: Request, res: Response) => {
+  const result = await topicService.listTopics(req.query as unknown as ListTopicsQuery);
+  res.json({ success: true, data: result.data, meta: result.meta });
 });
 
 export const createTopic = asyncHandler(async (req: Request, res: Response) => {

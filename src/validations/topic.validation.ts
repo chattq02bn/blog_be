@@ -40,12 +40,20 @@ export const sidebarQuerySchema = z.object({
   childrenLimit: z.coerce.number().int().min(0).max(20).optional(),
   /** GET /sidebar/:id/children — lấy từ vị trí offset trở đi */
   offset: z.coerce.number().int().min(0).optional(),
+  q: z.string().trim().min(1).optional(),
+});
+
+export const listTopicsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  q: z.string().trim().min(1).optional(),
 });
 
 export type CreateTopicInput = z.infer<typeof createTopicSchema>;
 export type UpdateTopicInput = z.infer<typeof updateTopicSchema>;
 export type ReplaceSidebarItemsInput = z.infer<typeof replaceSidebarItemsSchema>;
 export type SidebarQuery = z.infer<typeof sidebarQuerySchema>;
+export type ListTopicsQuery = z.infer<typeof listTopicsQuerySchema>;
 export type CreateSidebarItemInput = z.infer<typeof createSidebarItemSchema>;
 
 export const createSidebarItemSchema = z.object({

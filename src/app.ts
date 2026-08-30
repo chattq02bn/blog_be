@@ -36,7 +36,7 @@ app.use(compression());
 
 /* Skip body-parser for multipart (file upload) — formidable handles it */
 app.use(express.urlencoded({ extended: true }))
-app.use(express.json())
+app.use(express.json({ limit: "10mb" }));
 
 if (env.NODE_ENV === "development") {
   app.use(morgan("dev"));

@@ -86,6 +86,7 @@ export async function listSidebarItems(query?: {
   page?: number;
   limit?: number;
   childrenLimit?: number;
+  q?: string;
 }): Promise<{
   roots: SidebarNode[];
   meta: { page: number; limit: number; total: number; totalPages: number };
@@ -102,7 +103,15 @@ export async function listSidebarItems(query?: {
     Math.max(0, query?.childrenLimit ?? 5)
   );
 
-  const whereRoots = { parentId: null };
+  const qFilter = query?.q
+    ? {
+      OR: [
+        { name: { contains: query.q, mode: "insensitive" as const } },
+      ],
+    }
+    : {};
+
+  const whereRoots = { parentId: null, ...qFilter };
 
   const [rootRows, total] = await Promise.all([
     prisma.sidebarItem.findMany({
