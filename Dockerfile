@@ -28,15 +28,22 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY prisma ./prisma
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/src ./src
 
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
 EXPOSE 4000
 
-# Production: chỉ migrate + start app (seed chỉ chạy local)
+# CMD: migrate → seed (chỉ khi NODE_ENV=development) → start app
 CMD ["sh", "-c", "\
   echo '=== Running migrations ===' && \
   npx prisma migrate deploy && \
+  if [ \"$NODE_ENV\" = \"development\" ]; then \
+    echo '=== Running seed ===' && \
+    npx tsx prisma/seed.ts; \
+  else \
+    echo '=== Skipping seed (production) ==='; \
+  fi && \
   echo '=== Starting app ===' && \
   node --enable-source-maps dist/server.js \
 "]
