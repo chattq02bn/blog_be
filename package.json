@@ -2,7 +2,7 @@
   "name": "blog-backend",
   "version": "1.0.0",
   "description": "Blog backend API built with Node.js, Express 5, TypeScript and Prisma (PostgreSQL)",
-  "main": "dist/src/server.js",
+  "main": "dist/server.js",
   "private": true,
   "type": "module",
   "scripts": {
