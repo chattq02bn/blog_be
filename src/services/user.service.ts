@@ -1,6 +1,7 @@
 import { prisma } from "../config/prisma.js";
 import ApiError from "../utils/ApiError.js";
 import { hashPassword, comparePassword } from "../utils/password.util.js";
+import { sendWelcomeEmail } from "../services/mail.service.js";
 import type {
   CreateUserInput,
   ListUsersQuery,
@@ -13,6 +14,9 @@ const USER_SELECT = {
   email: true,
   name: true,
   role: true,
+  status: true,
+  mailStatus: true,
+  mailError: true,
   avatar: true,
   logoName: true,
   description: true,
@@ -26,6 +30,9 @@ function serializeUser(user: {
   email: string;
   name: string | null;
   role: "USER" | "ADMIN";
+  status: "ACTIVE" | "INACTIVE";
+  mailStatus: "PENDING" | "SENT" | "FAILED";
+  mailError: string | null;
   avatar: string | null;
   logoName: string | null;
   description: string | null;
@@ -38,6 +45,9 @@ function serializeUser(user: {
     email: user.email,
     name: user.name,
     role: user.role === "ADMIN" ? ("admin" as const) : ("user" as const),
+    status: user.status === "ACTIVE" ? ("active" as const) : ("inactive" as const),
+    mailStatus: user.mailStatus.toLowerCase() as "pending" | "sent" | "failed",
+    mailError: user.mailError,
     avatar: user.avatar,
     logoName: user.logoName,
     description: user.description,
@@ -115,7 +125,17 @@ export async function createUser(input: CreateUserInput) {
     select: USER_SELECT,
   });
 
-  return serializeUser(user);
+  const mailSent = await sendWelcomeEmail(input.email, input.name, input.password);
+  const updatedUser = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      mailStatus: mailSent ? "SENT" : "FAILED",
+      mailError: mailSent ? null : "Gửi mail thất bại",
+    },
+    select: USER_SELECT,
+  });
+
+  return serializeUser(updatedUser);
 }
 
 export async function updateUser(id: number, input: UpdateUserInput) {
@@ -153,7 +173,47 @@ export async function deleteUser(id: number, requesterId: number): Promise<void>
     throw ApiError.notFound("User not found");
   }
 
-  await prisma.user.delete({ where: { id } });
+  await prisma.user.update({ where: { id }, data: { status: "INACTIVE" } });
+}
+
+export async function toggleUserStatus(id: number): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id }, select: { status: true } });
+  if (!user) {
+    throw ApiError.notFound("User not found");
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: { status: user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" },
+  });
+}
+
+export async function resendWelcomeEmail(id: number): Promise<{ success: boolean; email: string; newPassword?: string; error?: string }> {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, email: true, name: true },
+  });
+  if (!user) {
+    throw ApiError.notFound("User not found");
+  }
+
+  const tempPassword = `Note${Math.random().toString(36).slice(2, 10)}!1`;
+  const hashedPassword = await hashPassword(tempPassword);
+
+  await prisma.user.update({
+    where: { id },
+    data: { passwordHash: hashedPassword },
+  });
+
+  const sent = await sendWelcomeEmail(user.email, user.name ?? user.email, tempPassword);
+  const error = sent ? null : "Gửi mail thất bại";
+
+  await prisma.user.update({
+    where: { id },
+    data: { mailStatus: sent ? "SENT" : "FAILED", mailError: error },
+  });
+
+  return { success: sent, email: user.email, newPassword: sent ? tempPassword : undefined, error: error ?? undefined };
 }
 
 export async function getProfile(userId: number) {

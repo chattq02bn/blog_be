@@ -9,6 +9,8 @@ import {
   patchUser,
   removeUser,
   changeMyPassword,
+  toggleStatus,
+  resendMail,
 } from "../controllers/user.controller.js";
 import validate from "../middlewares/validate.middleware.js";
 import { authenticate, authorize } from "../middlewares/auth.middleware.js";
@@ -35,5 +37,7 @@ const idParam = z.object({ id: z.coerce.number().int().positive() });
 router.get("/:id", validate(idParam, "params"), getSingleUser);
 router.patch("/:id", validate(idParam, "params"), validate(updateUserSchema), patchUser);
 router.delete("/:id", validate(idParam, "params"), removeUser);
+router.patch("/:id/toggle-status", validate(idParam, "params"), toggleStatus);
+router.post("/:id/resend-mail", validate(idParam, "params"), resendMail);
 
 export default router;

@@ -12,17 +12,31 @@ enum UserRole {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 enum PostStatus {
   DRAFT
   PUBLISHED
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
   passwordHash String
   name         String?
-  role         UserRole @default(USER)
+  role         UserRole   @default(USER)
+  status       UserStatus @default(ACTIVE)
+  mailStatus   MailStatus @default(PENDING)
+  mailError    String?
   avatar       String?
   logoName     String?
   description  String?
@@ -191,15 +205,23 @@ model PostLike {
 }
 
 model SocialLink {
-  id        Int      @id @default(autoincrement())
-  platform  String   @db.VarChar(30)
-  url       String   @db.VarChar(500)
-  isActive  Boolean  @default(true)
-  idx       Int      @default(0)
+  id        Int    @id @default(autoincrement())
+  platform  String @db.VarChar(30)
+  url       String @db.VarChar(500)
+  isActive  Boolean @default(true)
+  idx       Int    @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([platform])
   @@map("social_links")
+}
+
+model SiteConfig {
+  key       String @id
+  value     String @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("site_configs")
 }

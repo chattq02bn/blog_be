@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chào mừng đến với Note</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #222;
+    }
+
+    .email {
+      background: #fff;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+
+    p {
+      margin: 0 0 18px;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #444;
+    }
+
+    .greeting {
+      color: #222;
+      font-size: 16px;
+    }
+
+    .title {
+      margin: 28px 0 16px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #222;
+    }
+
+    .info {
+      margin-bottom: 10px;
+    }
+
+    .password {
+      font-family: monospace;
+      color: #222;
+    }
+
+    .warning {
+      margin: 24px 0;
+      padding: 12px 14px;
+      background: #fff8e6;
+      border-radius: 6px;
+      color: #8a6100;
+      font-size: 14px;
+    }
+
+    .footer {
+      margin-top: 28px;
+      color: #555;
+      font-size: 14px;
+    }
+
+    .signature {
+      color: #222;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="email">
+
+    <p class="greeting">
+      Xin chào <strong>{{NAME}}</strong>! 👋
+    </p>
+
+    <p>
+      Chào mừng bạn đến với <strong>Note</strong> – nơi ghi lại
+      những ý tưởng của bạn.
+    </p>
+
+    <p>
+      Tài khoản của bạn đã được tạo thành công.
+    </p>
+
+    <h2 class="title">
+      THÔNG TIN ĐĂNG NHẬP
+    </h2>
+
+    <p class="info">
+      Email: <strong>{{EMAIL}}</strong>
+    </p>
+
+    <p class="info">
+      Mật khẩu tạm thời:
+      <strong class="password">{{PASSWORD}}</strong>
+    </p>
+
+    <p class="warning">
+      ⚠️ Vui lòng đổi mật khẩu ngay sau lần đăng nhập đầu tiên
+      để bảo vệ tài khoản của bạn.
+    </p>
+
+    <p>
+      Nếu bạn không yêu cầu tạo tài khoản này, vui lòng bỏ qua
+      email này.
+    </p>
+
+    <p class="footer">
+      Trân trọng,<br />
+    </p>
+
+  </div>
+
+</body>
+
+</html>

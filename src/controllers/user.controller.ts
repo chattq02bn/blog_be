@@ -6,6 +6,8 @@ import {
   getProfile,
   getUserById,
   listUsers,
+  resendWelcomeEmail,
+  toggleUserStatus,
   updateProfile,
   updateUser,
 } from "../services/user.service.js";
@@ -38,7 +40,17 @@ export const removeUser = asyncHandler(async (req: Request, res: Response) => {
   }
 
   await deleteUser(Number(req.params.id), req.user.id);
-  res.json({ success: true, message: "User deleted" });
+  res.json({ success: true, message: "User deactivated" });
+});
+
+export const toggleStatus = asyncHandler(async (req: Request, res: Response) => {
+  await toggleUserStatus(Number(req.params.id));
+  res.json({ success: true, message: "Status toggled" });
+});
+
+export const resendMail = asyncHandler(async (req: Request, res: Response) => {
+  const result = await resendWelcomeEmail(Number(req.params.id));
+  res.json({ success: true, data: result });
 });
 
 export const getMyProfile = asyncHandler(async (req: Request, res: Response) => {
