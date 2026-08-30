@@ -9,6 +9,7 @@ import userRoutes from "./user.routes.js";
 import sidebarRoutes from "./sidebar.routes.js";
 import socialLinkRoutes from "./social-link.routes.js";
 import mailRoutes from "./mail.routes.js";
+import uploadRoutes from "./upload.routes.js";
 import { visitsStats } from "../controllers/stats.controller.js";
 import validate from "../middlewares/validate.middleware.js";
 import { visitsQuerySchema } from "../validations/profile.validation.js";
@@ -27,6 +28,7 @@ router.use("/users", userRoutes);
 router.use("/sidebar", sidebarRoutes);
 router.use("/social-links", socialLinkRoutes);
 router.use("/mail", mailRoutes);
+router.use("/upload", uploadRoutes);
 router.get("/stats/visits", validate(visitsQuerySchema, "query"), visitsStats);
 
 export default router;

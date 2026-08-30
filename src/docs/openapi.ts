@@ -217,6 +217,7 @@ export const openapiDocument = {
     { name: "Tags", description: "Quản lý thẻ bài viết" },
     { name: "Users", description: "Quản lý người dùng (ADMIN)" },
     { name: "Sidebar", description: "Cây menu sidebar" },
+    { name: "Upload", description: "Cấu hình & upload file (Cloudinary / Mega)" },
     { name: "Stats", description: "Thống kê lượt truy cập" },
   ],
   components: {
@@ -464,6 +465,40 @@ export const openapiDocument = {
       Section,
       Comment,
       SidebarNode,
+      UploadConfig: {
+        type: "object",
+        properties: {
+          cloudinary: {
+            type: "object",
+            properties: {
+              cloudName: { type: "string", example: "dkqyptupf" },
+              apiKey: { type: "string", example: "923633263214567" },
+              apiSecret: { type: "string" },
+              folder: { type: "string", example: "blog" },
+            },
+            required: ["cloudName", "apiKey", "apiSecret", "folder"],
+          },
+          mega: {
+            type: "object",
+            properties: {
+              email: { type: "string", format: "email" },
+              password: { type: "string" },
+            },
+            required: ["email", "password"],
+          },
+        },
+        required: ["cloudinary", "mega"],
+      },
+      UploadResult: {
+        type: "object",
+        properties: {
+          url: { type: "string", example: "https://res.cloudinary.com/..." },
+          bytes: { type: "integer", example: 102400 },
+          format: { type: "string", example: "jpg" },
+          originalFilename: { type: "string", example: "avatar.jpg" },
+        },
+        required: ["url", "bytes", "format", "originalFilename"],
+      },
     },
   },
   paths: {
@@ -1170,6 +1205,18 @@ export const openapiDocument = {
           },
         },
       },
+      post: {
+        tags: ["Sidebar"],
+        summary: "Tạo mục sidebar mới (đẩy idx hiện tại lên 1, item mới idx = 0)",
+        security: bearer,
+        requestBody: jsonBody("SidebarItemInput"),
+        responses: {
+          "201": okJson("Tạo thành công", "SidebarNode"),
+          "401": unauthorized(),
+          "403": forbidden(),
+          "422": validation(),
+        },
+      },
       put: {
         tags: ["Sidebar"],
         summary: "Ghi đè toàn bộ sidebar (ADMIN)",
@@ -1197,6 +1244,64 @@ export const openapiDocument = {
           "401": unauthorized(),
           "403": forbidden(),
           "422": validation(),
+        },
+      },
+    },
+
+    /* ================= UPLOAD ================= */
+    "/api/v1/upload/config": {
+      get: {
+        tags: ["Upload"],
+        summary: "Lấy cấu hình upload (Cloudinary + Mega)",
+        security: bearer,
+        responses: {
+          "200": okJson("Cấu hình upload", "UploadConfig"),
+          "401": unauthorized(),
+        },
+      },
+      put: {
+        tags: ["Upload"],
+        summary: "Cập nhật cấu hình upload (ADMIN)",
+        security: bearer,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UploadConfig" },
+            },
+          },
+        },
+        responses: {
+          "200": okJson("Cập nhật thành công", "UploadConfig"),
+          "401": unauthorized(),
+          "403": forbidden(),
+          "422": validation(),
+        },
+      },
+    },
+    "/api/v1/upload/file": {
+      post: {
+        tags: ["Upload"],
+        summary: "Upload file lên Cloudinary (ảnh/video) hoặc Mega (tệp khác)",
+        security: bearer,
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: {
+                  file: { type: "string", format: "binary", description: "File cần upload" },
+                },
+                required: ["file"],
+              },
+            },
+          },
+        },
+        responses: {
+          "201": okJson("Upload thành công", "UploadResult"),
+          "401": unauthorized(),
+          "400": badRequest("No upload provider configured"),
         },
       },
     },
