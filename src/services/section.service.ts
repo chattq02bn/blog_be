@@ -106,17 +106,53 @@ export async function listSectionsByTopicSlugPaginated(
     prisma.sidebarItem.findFirst({
       where: { slug: topicSlug },
       select: {
-        topics: { select: { name: true, description: true }, take: 1 },
+        name: true,
+        description: true,
+        topics: { select: { id: true } },
       },
     }),
   ]);
 
   const totalPages = Math.ceil(total / limit);
-  const topic = sidebarItem?.topics[0] ?? null;
+
+  const topicInfo = sidebarItem
+    ? { name: sidebarItem.name, description: sidebarItem.description ?? "" }
+    : null;
+
+  // When no sections, return posts linked to the topic directly
+  if (total === 0 && sidebarItem?.topics?.length) {
+    const topicIds = sidebarItem.topics.map((t) => t.id);
+    const [topicPosts, postCount] = await Promise.all([
+      prisma.post.findMany({
+        where: {
+          topics: { some: { id: { in: topicIds } } },
+          status: "PUBLISHED",
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        select: POST_SELECT,
+      }),
+      prisma.post.count({
+        where: {
+          topics: { some: { id: { in: topicIds } } },
+          status: "PUBLISHED",
+        },
+      }),
+    ]);
+
+    return {
+      data: [],
+      meta: { page, limit, total: postCount, totalPages: Math.ceil(postCount / limit) },
+      topic: topicInfo,
+      topicPosts: topicPosts.map(serializePost),
+    };
+  }
 
   return {
     data: sections.map(serializeSection),
     meta: { page, limit, total, totalPages },
-    topic: topic ? { name: topic.name, description: topic.description ?? "" } : null,
+    topic: topicInfo,
+    topicPosts: null,
   };
 }
