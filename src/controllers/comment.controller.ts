@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import {
   createComment, deleteComment, listComments, listReplies,
-  toggleReaction, toggleReactionByCommenter, updateComment,
+  toggleReaction, toggleReactionByCommenter, toggleReactionAnonymous, updateComment,
 } from "../services/comment.service.js";
 import { findOrCreateForUser, createAnonymousCommenter, generateAnonymousName, checkNameUsed } from "../services/commenter.service.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -115,5 +115,6 @@ export const toggleCommentReaction = asyncHandler(async (req, res) => {
     return;
   }
 
-  throw ApiError.unauthorized("Login or commenter token required to react");
+  const result = await toggleReactionAnonymous(String(req.params.id), emoji);
+  res.json({ success: true, data: result });
 });

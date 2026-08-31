@@ -360,3 +360,44 @@ export async function toggleReactionByCommenter(
 
   return { comment: serializeComment(updated, post?.authorId ?? null), active };
 }
+
+// --- toggleReactionAnonymous: no auth required, simple toggle ---
+export async function toggleReactionAnonymous(
+  commentId: string,
+  emoji: string
+): Promise<{ comment: SerializedComment; active: boolean }> {
+  const existing = await prisma.comment.findUnique({
+    where: { id: commentId },
+    select: { id: true },
+  });
+  if (!existing) throw ApiError.notFound("Comment not found");
+
+  const anonymousReaction = await prisma.commentReaction.findFirst({
+    where: { commentId, emoji, userId: null, commenterId: null },
+    select: { id: true },
+  });
+
+  let active: boolean;
+  if (anonymousReaction) {
+    await prisma.commentReaction.delete({ where: { id: anonymousReaction.id } });
+    active = false;
+  } else {
+    await prisma.commentReaction.create({
+      data: { commentId, emoji },
+    });
+    active = true;
+  }
+
+  const updated = await prisma.comment.findUnique({
+    where: { id: commentId },
+    include: commentInclude,
+  });
+  if (!updated) throw ApiError.notFound("Comment not found");
+
+  const post = await prisma.post.findUnique({
+    where: { id: updated.postId },
+    select: { authorId: true },
+  });
+
+  return { comment: serializeComment(updated, post?.authorId ?? null), active };
+}
