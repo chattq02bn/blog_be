@@ -42,6 +42,7 @@ model User {
   description  String?
   posts        Post[]
   reactions    CommentReaction[]
+  commenter    Commenter?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -135,6 +136,8 @@ model Commenter {
   id        Int      @id @default(autoincrement())
   nickname  String   @db.VarChar(80)
   tokenHash String   @unique
+  userId    Int?     @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   comments  Comment[]
   postLikes PostLike[]
 

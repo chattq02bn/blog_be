@@ -35,6 +35,78 @@ export async function createCommenter(input: CreateCommenterInput) {
 }
 
 /**
+ * Find or create a commenter for a logged-in user.
+ * Returns { commenter, token? } - token is only returned for new commenters.
+ */
+export async function findOrCreateForUser(userId: number, name: string) {
+  const existing = await prisma.commenter.findUnique({
+    where: { userId },
+    select: { id: true, nickname: true },
+  });
+  if (existing) {
+    return { commenter: serializeCommenter(existing), token: null };
+  }
+
+  const token = generateToken();
+  const tokenHash = sha256hex(token);
+
+  const commenter = await prisma.commenter.create({
+    data: {
+      nickname: name || "Người dùng",
+      tokenHash,
+      userId,
+    },
+    select: { id: true, nickname: true },
+  });
+
+  return { commenter: serializeCommenter(commenter), token };
+}
+
+/**
+ * Find or create a commenter by token hash (for anonymous users with existing token).
+ */
+export async function findOrCreateByTokenHash(tokenHash: string, nickname: string) {
+  const existing = await prisma.commenter.findUnique({
+    where: { tokenHash },
+    select: { id: true, nickname: true },
+  });
+  if (existing) {
+    return { commenter: serializeCommenter(existing), token: null };
+  }
+
+  const token = generateToken();
+  const newTokenHash = sha256hex(token);
+
+  const commenter = await prisma.commenter.create({
+    data: {
+      nickname,
+      tokenHash: newTokenHash,
+    },
+    select: { id: true, nickname: true },
+  });
+
+  return { commenter: serializeCommenter(commenter), token };
+}
+
+/**
+ * Create a new anonymous commenter with a nickname. Returns { commenter, token }.
+ */
+export async function createAnonymousCommenter(nickname: string) {
+  const token = generateToken();
+  const tokenHash = sha256hex(token);
+
+  const commenter = await prisma.commenter.create({
+    data: {
+      nickname,
+      tokenHash,
+    },
+    select: { id: true, nickname: true },
+  });
+
+  return { commenter: serializeCommenter(commenter), token };
+}
+
+/**
  * Update nickname for an authenticated commenter.
  */
 export async function updateCommenterNickname(

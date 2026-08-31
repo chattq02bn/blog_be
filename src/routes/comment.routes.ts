@@ -20,8 +20,8 @@ router.get("/post/:id", optionalAuth,
   listPostComments
 );
 
-// POST /comments/post/:id  (requires commenter token)
-router.post("/post/:id", authenticateCommenter,
+// POST /comments/post/:id  (public: optional auth + optional commenter token)
+router.post("/post/:id", optionalAuth, optionalCommenterAuth,
   validate(idParamSchema, "params"),
   validate(createCommentSchema),
   postComment

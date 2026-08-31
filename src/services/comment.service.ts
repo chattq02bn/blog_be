@@ -11,7 +11,7 @@ type CommentRow = {
   postId: string;
   parentId: string | null;
   commenterId: number;
-  commenter: { id: number; nickname: string };
+  commenter: { id: number; nickname: string; userId: number | null; user: { avatar: string | null } | null };
   content: string;
   isEdited: boolean;
   createdAt: Date;
@@ -22,6 +22,7 @@ type CommentRow = {
 
 function serializeComment(
   comment: CommentRow,
+  postAuthorId: number | null,
   viewer?: { id: number } | null,
   parentMap?: Map<string, { commenter: { nickname: string } }>
 ) {
@@ -43,12 +44,16 @@ function serializeComment(
     }
   }
 
+  const isAuthor = postAuthorId != null && comment.commenter.userId === postAuthorId;
+
   return {
     id: comment.id,
     noteId: comment.postId,
     parentId: comment.parentId,
     commenterId: comment.commenterId,
     author: comment.commenter.nickname,
+    authorAvatar: comment.commenter.user?.avatar ?? null,
+    isAuthor,
     parentAuthor,
     content: comment.content,
     isEdited: comment.isEdited,
@@ -65,7 +70,7 @@ export type SerializedComment = ReturnType<typeof serializeComment>;
 async function resolvePost(idOrSlug: string) {
   const post = await prisma.post.findFirst({
     where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-    select: { id: true },
+    select: { id: true, authorId: true },
   });
   if (!post) throw ApiError.notFound("Post not found");
   return post;
@@ -73,7 +78,7 @@ async function resolvePost(idOrSlug: string) {
 
 const commentInclude = {
   reactions: { select: { emoji: true, userId: true } },
-  commenter: { select: { id: true, nickname: true } },
+  commenter: { select: { id: true, nickname: true, userId: true, user: { select: { avatar: true } } } },
   _count: { select: { replies: true } },
 } as const;
 
@@ -100,7 +105,7 @@ export async function listComments(
   ]);
 
   return {
-    data: rows.map((row) => serializeComment(row, viewer)),
+    data: rows.map((row) => serializeComment(row, post.authorId, viewer)),
     meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   };
 }
@@ -113,9 +118,14 @@ export async function listReplies(
 ) {
   const parent = await prisma.comment.findUnique({
     where: { id: commentId },
-    select: { id: true },
+    select: { id: true, postId: true },
   });
   if (!parent) throw ApiError.notFound("Comment not found");
+
+  const post = await prisma.post.findUnique({
+    where: { id: parent.postId },
+    select: { authorId: true },
+  });
 
   const page = query?.page ?? 1;
   const limit = query?.limit ?? 5;
@@ -160,12 +170,12 @@ export async function listReplies(
   const parentMap = new Map(parentRows.map((r) => [r.id, r]));
 
   return {
-    data: rows.map((row) => serializeComment(row, viewer, parentMap)),
+    data: rows.map((row) => serializeComment(row, post?.authorId ?? null, viewer, parentMap)),
     meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   };
 }
 
-// --- createComment: requires commenter ---
+// --- createComment: requires commenterId ---
 export async function createComment(
   postIdOrSlug: string,
   commenterId: number,
@@ -203,7 +213,7 @@ export async function createComment(
     }
   }
 
-  return serializeComment(created, undefined, parentMap);
+  return serializeComment(created, post.authorId, undefined, parentMap);
 }
 
 // --- Permission: check commenter owns comment ---
@@ -224,11 +234,16 @@ export async function updateComment(
 ): Promise<SerializedComment> {
   const existing = await prisma.comment.findUnique({
     where: { id: commentId },
-    include: { reactions: { select: { emoji: true, userId: true } }, commenter: { select: { id: true, nickname: true } } },
+    include: { reactions: { select: { emoji: true, userId: true } }, commenter: { select: { id: true, nickname: true, userId: true } } },
   });
   if (!existing) throw ApiError.notFound("Comment not found");
 
   ensureCanManage(existing, commenterId);
+
+  const post = await prisma.post.findUnique({
+    where: { id: existing.postId },
+    select: { authorId: true },
+  });
 
   const updated = await prisma.comment.update({
     where: { id: commentId },
@@ -236,7 +251,7 @@ export async function updateComment(
     include: commentInclude,
   });
 
-  return serializeComment(updated);
+  return serializeComment(updated, post?.authorId ?? null);
 }
 
 // --- deleteComment ---
@@ -292,5 +307,10 @@ export async function toggleReaction(
   });
   if (!updated) throw ApiError.notFound("Comment not found");
 
-  return { comment: serializeComment(updated, { id: viewer.id }), active };
+  const post = await prisma.post.findUnique({
+    where: { id: updated.postId },
+    select: { authorId: true },
+  });
+
+  return { comment: serializeComment(updated, post?.authorId ?? null, { id: viewer.id }), active };
 }
