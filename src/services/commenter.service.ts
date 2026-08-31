@@ -108,8 +108,7 @@ export async function createAnonymousCommenter(nickname: string) {
 
 /**
  * Generate an anonymous name for a post.
- * Scans existing commenters on the post and picks the lowest unused
- * "Người dùng X" number.
+ * Uses random suffix to ensure uniqueness across devices.
  */
 export async function generateAnonymousName(postIdOrSlug: string): Promise<string> {
   const post = await prisma.post.findFirst({
@@ -127,18 +126,18 @@ export async function generateAnonymousName(postIdOrSlug: string): Promise<strin
     distinct: ["nickname"],
   });
 
-  const used = new Set<number>();
+  const usedNames = new Set(rows.map((r) => r.nickname));
   const prefix = "Người dùng ";
-  for (const row of rows) {
-    if (row.nickname.startsWith(prefix)) {
-      const num = parseInt(row.nickname.slice(prefix.length), 10);
-      if (!isNaN(num)) used.add(num);
-    }
+
+  // Try random suffix until we find an unused name
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const suffix = Math.random().toString(36).substring(2, 6);
+    const name = `${prefix}${suffix}`;
+    if (!usedNames.has(name)) return name;
   }
 
-  let n = 1;
-  while (used.has(n)) n++;
-  return `${prefix}${n}`;
+  // Fallback: use timestamp
+  return `${prefix}${Date.now().toString(36)}`;
 }
 
 /**
