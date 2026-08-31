@@ -16,7 +16,7 @@ type CommentRow = {
   isEdited: boolean;
   createdAt: Date;
   updatedAt: Date;
-  reactions: { emoji: string; userId: number | null }[];
+  reactions: { emoji: string; userId: number | null; commenterId: number | null }[];
   _count?: { replies: number } | null;
 };
 
@@ -24,7 +24,8 @@ function serializeComment(
   comment: CommentRow,
   postAuthorId: number | null,
   viewer?: { id: number } | null,
-  parentMap?: Map<string, { commenter: { nickname: string } }>
+  parentMap?: Map<string, { commenter: { nickname: string } }>,
+  viewerCommenterId?: number | null
 ) {
   const counts = new Map<string, number>();
   const myReactions: string[] = [];
@@ -32,6 +33,8 @@ function serializeComment(
   for (const reaction of comment.reactions) {
     counts.set(reaction.emoji, (counts.get(reaction.emoji) ?? 0) + 1);
     if (viewer && reaction.userId === viewer.id) {
+      myReactions.push(reaction.emoji);
+    } else if (viewerCommenterId && reaction.commenterId === viewerCommenterId) {
       myReactions.push(reaction.emoji);
     }
   }
@@ -77,7 +80,7 @@ async function resolvePost(idOrSlug: string) {
 }
 
 const commentInclude = {
-  reactions: { select: { emoji: true, userId: true } },
+  reactions: { select: { emoji: true, userId: true, commenterId: true } },
   commenter: { select: { id: true, nickname: true, userId: true, user: { select: { avatar: true } } } },
   _count: { select: { replies: true } },
 } as const;
@@ -313,4 +316,50 @@ export async function toggleReaction(
   });
 
   return { comment: serializeComment(updated, post?.authorId ?? null, { id: viewer.id }), active };
+}
+
+// --- toggleReactionByCommenter: Anonymous (commenter token), toggle on/off ---
+export async function toggleReactionByCommenter(
+  commentId: string,
+  commenterId: number,
+  emoji: string
+): Promise<{ comment: SerializedComment; active: boolean }> {
+  const existing = await prisma.comment.findUnique({
+    where: { id: commentId },
+    select: { id: true },
+  });
+  if (!existing) throw ApiError.notFound("Comment not found");
+
+  const reactionWhere = {
+    commentId_commenterId_emoji: { commentId, commenterId, emoji },
+  } as const;
+
+  const reacted = await prisma.commentReaction.findUnique({
+    where: reactionWhere,
+    select: { id: true },
+  });
+
+  let active: boolean;
+  if (reacted) {
+    await prisma.commentReaction.delete({ where: reactionWhere });
+    active = false;
+  } else {
+    await prisma.commentReaction.create({
+      data: { commentId, commenterId, emoji },
+    });
+    active = true;
+  }
+
+  const updated = await prisma.comment.findUnique({
+    where: { id: commentId },
+    include: commentInclude,
+  });
+  if (!updated) throw ApiError.notFound("Comment not found");
+
+  const post = await prisma.post.findUnique({
+    where: { id: updated.postId },
+    select: { authorId: true },
+  });
+
+  return { comment: serializeComment(updated, post?.authorId ?? null), active };
 }

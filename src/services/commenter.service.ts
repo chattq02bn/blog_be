@@ -107,6 +107,60 @@ export async function createAnonymousCommenter(nickname: string) {
 }
 
 /**
+ * Generate an anonymous name for a post.
+ * Scans existing commenters on the post and picks the lowest unused
+ * "Người dùng X" number.
+ */
+export async function generateAnonymousName(postIdOrSlug: string): Promise<string> {
+  const post = await prisma.post.findFirst({
+    where: { OR: [{ id: postIdOrSlug }, { slug: postIdOrSlug }] },
+    select: { id: true },
+  });
+  if (!post) throw ApiError.notFound("Post not found");
+
+  const rows = await prisma.commenter.findMany({
+    where: {
+      comments: { some: { postId: post.id } },
+      userId: null,
+    },
+    select: { nickname: true },
+    distinct: ["nickname"],
+  });
+
+  const used = new Set<number>();
+  const prefix = "Người dùng ";
+  for (const row of rows) {
+    if (row.nickname.startsWith(prefix)) {
+      const num = parseInt(row.nickname.slice(prefix.length), 10);
+      if (!isNaN(num)) used.add(num);
+    }
+  }
+
+  let n = 1;
+  while (used.has(n)) n++;
+  return `${prefix}${n}`;
+}
+
+/**
+ * Check if a nickname is already used by any commenter on a given post.
+ */
+export async function checkNameUsed(postIdOrSlug: string, name: string): Promise<boolean> {
+  const post = await prisma.post.findFirst({
+    where: { OR: [{ id: postIdOrSlug }, { slug: postIdOrSlug }] },
+    select: { id: true },
+  });
+  if (!post) throw ApiError.notFound("Post not found");
+
+  const count = await prisma.commenter.count({
+    where: {
+      nickname: name,
+      comments: { some: { postId: post.id } },
+    },
+  });
+  return count > 0;
+}
+
+/**
  * Update nickname for an authenticated commenter.
  */
 export async function updateCommenterNickname(
