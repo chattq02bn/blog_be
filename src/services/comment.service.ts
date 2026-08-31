@@ -16,7 +16,7 @@ type CommentRow = {
   isEdited: boolean;
   createdAt: Date;
   updatedAt: Date;
-  reactions: { emoji: string; userId: number | null; commenterId: number | null }[];
+  reactions: { emoji: string; userId: number | null }[];
   _count?: { replies: number } | null;
 };
 
@@ -24,8 +24,7 @@ function serializeComment(
   comment: CommentRow,
   postAuthorId: number | null,
   viewer?: { id: number } | null,
-  parentMap?: Map<string, { commenter: { nickname: string } }>,
-  viewerCommenterId?: number | null
+  parentMap?: Map<string, { commenter: { nickname: string } }>
 ) {
   const counts = new Map<string, number>();
   const myReactions: string[] = [];
@@ -33,8 +32,6 @@ function serializeComment(
   for (const reaction of comment.reactions) {
     counts.set(reaction.emoji, (counts.get(reaction.emoji) ?? 0) + 1);
     if (viewer && reaction.userId === viewer.id) {
-      myReactions.push(reaction.emoji);
-    } else if (viewerCommenterId && reaction.commenterId === viewerCommenterId) {
       myReactions.push(reaction.emoji);
     }
   }
@@ -80,7 +77,7 @@ async function resolvePost(idOrSlug: string) {
 }
 
 const commentInclude = {
-  reactions: { select: { emoji: true, userId: true, commenterId: true } },
+  reactions: { select: { emoji: true, userId: true } },
   commenter: { select: { id: true, nickname: true, userId: true, user: { select: { avatar: true } } } },
   _count: { select: { replies: true } },
 } as const;
