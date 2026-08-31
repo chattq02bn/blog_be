@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   listCommentReplies, listPostComments, patchComment,
   postComment, removeComment, toggleCommentReaction,
+  generateCommenterName,
 } from "../controllers/comment.controller.js";
 import validate from "../middlewares/validate.middleware.js";
 import { authenticate, optionalAuth } from "../middlewares/auth.middleware.js";
@@ -12,6 +13,9 @@ import {
 import { idParamSchema } from "../validations/post.validation.js";
 
 const router = Router();
+
+// GET  /comments/generate-name?postId=xxx — anonymous name generator
+router.get("/generate-name", generateCommenterName);
 
 // GET  /comments/post/:id?page=1&limit=10
 router.get("/post/:id", optionalAuth,
@@ -47,8 +51,8 @@ router.delete("/:id", authenticateCommenter,
   removeComment
 );
 
-// POST /comments/:id/reactions  (requires regular user login)
-router.post("/:id/reactions", authenticate,
+// POST /comments/:id/reactions  (public: optional auth + optional commenter token)
+router.post("/:id/reactions", optionalAuth, optionalCommenterAuth,
   validate(idParamSchema, "params"),
   validate(reactionBodySchema),
   toggleCommentReaction

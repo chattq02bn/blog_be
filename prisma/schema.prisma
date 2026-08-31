@@ -133,13 +133,14 @@ model Post {
 }
 
 model Commenter {
-  id        Int      @id @default(autoincrement())
-  nickname  String   @db.VarChar(80)
-  tokenHash String   @unique
-  userId    Int?     @unique
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  comments  Comment[]
-  postLikes PostLike[]
+  id              Int               @id @default(autoincrement())
+  nickname        String            @db.VarChar(80)
+  tokenHash       String            @unique
+  userId          Int?              @unique
+  user            User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  comments        Comment[]
+  postLikes       PostLike[]
+  commentReactions CommentReaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -170,14 +171,17 @@ model Comment {
 }
 
 model CommentReaction {
-  id        String  @id @default(cuid())
-  commentId String
-  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  emoji     String  @db.VarChar(8)
-  userId    Int?
-  user      User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String     @id @default(cuid())
+  commentId   String
+  comment     Comment    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  emoji       String     @db.VarChar(8)
+  userId      Int?
+  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commenterId Int?
+  commenter   Commenter? @relation(fields: [commenterId], references: [id], onDelete: Cascade)
 
   @@unique([commentId, userId, emoji])
+  @@unique([commentId, commenterId, emoji])
   @@map("comment_reactions")
 }
 

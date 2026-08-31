@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
 import {
   createComment, deleteComment, listComments, listReplies,
-  toggleReaction, updateComment,
+  toggleReaction, toggleReactionByCommenter, updateComment,
 } from "../services/comment.service.js";
-import { findOrCreateForUser, createAnonymousCommenter } from "../services/commenter.service.js";
+import { findOrCreateForUser, createAnonymousCommenter, generateAnonymousName } from "../services/commenter.service.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import type { ListCommentsQuery } from "../validations/comment.validation.js";
@@ -81,10 +81,29 @@ export const removeComment = asyncHandler(async (req, res) => {
   res.json({ success: true, message: "Comment deleted" });
 });
 
-export const toggleCommentReaction = asyncHandler(async (req, res) => {
-  if (!req.user) {
-    throw ApiError.unauthorized("Login required to react");
+export const generateCommenterName = asyncHandler(async (req, res) => {
+  const postId = String(req.query.postId ?? "");
+  if (!postId) {
+    throw ApiError.badRequest("postId is required");
   }
-  const result = await toggleReaction(String(req.params.id), { id: req.user.id }, req.body.emoji);
-  res.json({ success: true, data: result });
+  const name = await generateAnonymousName(postId);
+  res.json({ success: true, data: { name } });
+});
+
+export const toggleCommentReaction = asyncHandler(async (req, res) => {
+  const emoji = req.body.emoji as string;
+
+  if (req.user) {
+    const result = await toggleReaction(String(req.params.id), { id: req.user.id }, emoji);
+    res.json({ success: true, data: result });
+    return;
+  }
+
+  if (req.commenter) {
+    const result = await toggleReactionByCommenter(String(req.params.id), req.commenter.id, emoji);
+    res.json({ success: true, data: result });
+    return;
+  }
+
+  throw ApiError.unauthorized("Login or commenter token required to react");
 });
