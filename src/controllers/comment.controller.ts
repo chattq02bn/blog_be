@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import {
   createComment, deleteComment, listComments, listReplies,
-  toggleReaction, toggleReactionByCommenter, toggleReactionAnonymous, updateComment,
+  toggleCommentLike, getCommentLikeState, updateComment,
 } from "../services/comment.service.js";
 import { findOrCreateForUser, createAnonymousCommenter, generateAnonymousName, checkNameUsed } from "../services/commenter.service.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -29,15 +29,12 @@ export const postComment = asyncHandler(async (req, res) => {
   let commenterToken: string | null = null;
 
   if (req.user) {
-    // Logged-in user: find or create commenter linked to user
     const result = await findOrCreateForUser(req.user.id, req.user.name || "Người dùng");
     commenterId = result.commenter.id;
     if (result.token) commenterToken = result.token;
   } else if (req.commenter) {
-    // Has commenter token
     commenterId = req.commenter.id;
   } else {
-    // Anonymous: need nickname in body
     const nickname = (req.body as { nickname?: string })?.nickname;
     if (!nickname) {
       throw ApiError.badRequest("Vui lòng nhập tên để bình luận");
@@ -100,21 +97,15 @@ export const checkCommenterName = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { used } });
 });
 
-export const toggleCommentReaction = asyncHandler(async (req, res) => {
-  const emoji = req.body.emoji as string;
-
-  if (req.user) {
-    const result = await toggleReaction(String(req.params.id), { id: req.user.id }, emoji);
-    res.json({ success: true, data: result });
-    return;
+export const toggleCommentLikeHandler = asyncHandler(async (req, res) => {
+  if (!req.commenter) {
+    throw ApiError.unauthorized("Commenter token required");
   }
+  const result = await toggleCommentLike(String(req.params.id), req.commenter.id);
+  res.json({ success: true, data: result });
+});
 
-  if (req.commenter) {
-    const result = await toggleReactionByCommenter(String(req.params.id), req.commenter.id, emoji);
-    res.json({ success: true, data: result });
-    return;
-  }
-
-  const result = await toggleReactionAnonymous(String(req.params.id), emoji);
+export const getCommentLikeStateHandler = asyncHandler(async (req, res) => {
+  const result = await getCommentLikeState(String(req.params.id), req.commenter?.id);
   res.json({ success: true, data: result });
 });

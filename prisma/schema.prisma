@@ -141,6 +141,7 @@ model Commenter {
   comments        Comment[]
   postLikes       PostLike[]
   commentReactions CommentReaction[]
+  commentLikes    CommentLike[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -159,7 +160,9 @@ model Comment {
   commenter   Commenter @relation(fields: [commenterId], references: [id], onDelete: Cascade)
   content     String    @db.Text
   isEdited    Boolean   @default(false)
+  likes       Int       @default(0)
   reactions   CommentReaction[]
+  commentLikes CommentLike[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -183,6 +186,21 @@ model CommentReaction {
   @@unique([commentId, userId, emoji])
   @@unique([commentId, commenterId, emoji])
   @@map("comment_reactions")
+}
+
+model CommentLike {
+  id          Int       @id @default(autoincrement())
+  commentId   String
+  comment     Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commenterId Int
+  commenter   Commenter @relation(fields: [commenterId], references: [id], onDelete: Cascade)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@unique([commentId, commenterId])
+  @@index([commentId])
+  @@index([commenterId])
+  @@map("comment_likes")
 }
 
 model VisitStat {

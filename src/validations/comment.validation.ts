@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-export const COMMENT_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡", "👏", "🙏"] as const;
-
 export const createCommentSchema = z.object({
   content: z.string().trim().min(1, "Content is required").max(2000),
   parentId: z.string().trim().min(1).nullable().optional(),
@@ -10,10 +8,6 @@ export const createCommentSchema = z.object({
 
 export const updateCommentSchema = z.object({
   content: z.string().trim().min(1, "Content is required").max(2000),
-});
-
-export const reactionBodySchema = z.object({
-  emoji: z.enum(COMMENT_EMOJIS),
 });
 
 export const listCommentsQuerySchema = z.object({

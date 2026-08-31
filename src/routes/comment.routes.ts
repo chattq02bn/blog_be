@@ -1,14 +1,15 @@
 import { Router } from "express";
 import {
   listCommentReplies, listPostComments, patchComment,
-  postComment, removeComment, toggleCommentReaction,
+  postComment, removeComment, toggleCommentLikeHandler, getCommentLikeStateHandler,
   generateCommenterName, checkCommenterName,
 } from "../controllers/comment.controller.js";
 import validate from "../middlewares/validate.middleware.js";
 import { authenticate, optionalAuth } from "../middlewares/auth.middleware.js";
 import { authenticateCommenter, optionalCommenterAuth } from "../middlewares/commenterAuth.middleware.js";
+import { optionalCommenterFromCookie, ensureCommenter } from "../middlewares/likeAuth.middleware.js";
 import {
-  createCommentSchema, listCommentsQuerySchema, reactionBodySchema, updateCommentSchema,
+  createCommentSchema, listCommentsQuerySchema, updateCommentSchema,
 } from "../validations/comment.validation.js";
 import { idParamSchema } from "../validations/post.validation.js";
 
@@ -54,11 +55,10 @@ router.delete("/:id", authenticateCommenter,
   removeComment
 );
 
-// POST /comments/:id/reactions  (public: optional auth + optional commenter token)
-router.post("/:id/reactions", optionalAuth, optionalCommenterAuth,
-  validate(idParamSchema, "params"),
-  validate(reactionBodySchema),
-  toggleCommentReaction
-);
+// GET  /comments/:id/like  (optional commenter from cookie)
+router.get("/:id/like", optionalCommenterFromCookie, getCommentLikeStateHandler);
+
+// POST /comments/:id/like  (optional commenter from cookie + ensure commenter)
+router.post("/:id/like", optionalCommenterFromCookie, ensureCommenter, toggleCommentLikeHandler);
 
 export default router;
