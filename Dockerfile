@@ -36,6 +36,8 @@ EXPOSE 4000
 
 # CMD: migrate → seed (chỉ khi NODE_ENV=development) → start app
 CMD ["sh", "-c", "\
+  echo '=== Resolving failed migrations ===' && \
+  npx prisma migrate resolve --applied 20260828140631_add_post_likes 2>/dev/null || true && \
   echo '=== Running migrations ===' && \
   npx prisma migrate deploy && \
   if [ \"$NODE_ENV\" = \"development\" ]; then \
