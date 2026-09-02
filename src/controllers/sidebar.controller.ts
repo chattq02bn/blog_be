@@ -4,6 +4,7 @@ import {
   replaceSidebarItems,
   listSidebarChildren,
   listSidebarItems,
+  updateSidebarTopics,
 } from "../services/sidebar.service.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import type { SidebarQuery } from "../validations/topic.validation.js";
@@ -31,4 +32,9 @@ export const postSidebarItem = asyncHandler(async (req: Request, res: Response) 
 export const putSidebar = asyncHandler(async (req: Request, res: Response) => {
   const items = await replaceSidebarItems(req.body);
   res.json({ success: true, message: "Sidebar updated", data: items });
+});
+
+export const patchSidebarTopics = asyncHandler(async (req: Request, res: Response) => {
+  const item = await updateSidebarTopics(String(req.params.id), req.body);
+  res.json({ success: true, data: item });
 });

@@ -221,6 +221,36 @@ export async function createSidebarItem(input: CreateSidebarItemInput): Promise<
   return serializeRow(item);
 }
 
+export async function updateSidebarTopics(id: string, input: { topicIds?: string[]; addTopicId?: string }): Promise<SidebarNode> {
+  const existing = await prisma.sidebarItem.findUnique({
+    where: { id },
+    select: { id: true, topics: { select: { id: true } } },
+  });
+  if (!existing) throw ApiError.notFound("Sidebar item not found");
+
+  let finalTopicIds: string[];
+  if (input.topicIds) {
+    finalTopicIds = input.topicIds;
+  } else if (input.addTopicId) {
+    const currentIds = existing.topics.map((t) => t.id);
+    finalTopicIds = currentIds.includes(input.addTopicId)
+      ? currentIds
+      : [...currentIds, input.addTopicId];
+  } else {
+    finalTopicIds = existing.topics.map((t) => t.id);
+  }
+
+  const item = await prisma.sidebarItem.update({
+    where: { id },
+    data: {
+      topics: { set: finalTopicIds.map((tid) => ({ id: tid })) },
+    },
+    include: SIDEBAR_INCLUDE,
+  });
+
+  return serializeRow(item);
+}
+
 export async function replaceSidebarItems(input: ReplaceSidebarItemsInput): Promise<SidebarNode[]> {
   const seenIds = new Set<string>();
   for (const item of input.items) {

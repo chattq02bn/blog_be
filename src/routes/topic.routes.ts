@@ -6,7 +6,7 @@ import {
   listTopics,
   updateTopic,
 } from "../controllers/topic.controller.js";
-import { listTopicSections, listTopicSectionsPaginated, listSectionsBySlugs } from "../controllers/section.controller.js";
+import { listTopicSections, listTopicSectionsPaginated, listSectionsBySlugs, listTopicPostsController } from "../controllers/section.controller.js";
 import validate from "../middlewares/validate.middleware.js";
 import { authenticate, authorize } from "../middlewares/auth.middleware.js";
 import {
@@ -37,6 +37,11 @@ router.get(
   "/:slug/sections",
   validate(slugParamSchema, "params"),
   listTopicSections
+);
+router.get(
+  "/:slug/posts",
+  validate(slugParamSchema, "params"),
+  listTopicPostsController
 );
 router.post("/", authenticate, authorize("ADMIN"), validate(createTopicSchema), createTopic);
 router.patch(
