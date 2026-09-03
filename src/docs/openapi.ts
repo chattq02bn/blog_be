@@ -69,9 +69,6 @@ const Post = {
     likes: { type: "integer", example: 5 },
     bookmarks: { type: "integer", example: 3 },
     commentsCount: { type: "integer", example: 4 },
-    sectionId: { type: "string", nullable: true, example: "cmt8rs4j9zzz" },
-    topicIds: { type: "array", items: { type: "string" } },
-    tagIds: { type: "array", items: { type: "string" } },
     topics: { type: "array", items: { $ref: "#/components/schemas/TagRef" } },
     tags: { type: "array", items: { $ref: "#/components/schemas/TagRef" } },
     author: { $ref: "#/components/schemas/AuthorRef" },
@@ -105,19 +102,6 @@ const TopicSummary = {
     postCount: { type: "integer", example: 7 },
   },
   required: ["id", "name", "postCount"],
-} as const;
-
-const Section = {
-  type: "object",
-  properties: {
-    id: { type: "string", example: "cmt8rs4j9001sect01" },
-    slug: { type: "string", example: "zero-waste" },
-    title: { type: "string", example: "Sống tối giản" },
-    description: { type: "string", example: "Các bài viết về giảm rác thải" },
-    idx: { type: "integer", example: 0 },
-    posts: { type: "array", items: { $ref: "#/components/schemas/Post" } },
-  },
-  required: ["id", "slug", "title", "idx", "posts"],
 } as const;
 
 const CommentReactionCount = {
@@ -214,7 +198,7 @@ export const openapiDocument = {
     { name: "Auth", description: "Đăng ký, đăng nhập, refresh token" },
     { name: "Posts", description: "Quản lý bài viết, like/bookmark" },
     { name: "Comments", description: "Bình luận (kể cả khách) + reaction emoji" },
-    { name: "Topics", description: "Chủ đề và sections theo chủ đề" },
+    { name: "Topics", description: "Chủ đề" },
     { name: "Tags", description: "Quản lý thẻ bài viết" },
     { name: "Users", description: "Quản lý người dùng (ADMIN)" },
     { name: "Sidebar", description: "Cây menu sidebar" },
@@ -292,7 +276,6 @@ export const openapiDocument = {
           status: { type: "string", enum: ["draft", "published"], default: "draft" },
           topicIds: { type: "array", items: { type: "string" }, default: [] },
           tagIds: { type: "array", items: { type: "string" }, default: [] },
-          sectionId: { type: "string", nullable: true },
         },
         required: ["title"],
       },
@@ -307,7 +290,6 @@ export const openapiDocument = {
           status: { type: "string", enum: ["draft", "published"] },
           topicIds: { type: "array", items: { type: "string" } },
           tagIds: { type: "array", items: { type: "string" } },
-          sectionId: { type: "string", nullable: true },
         },
       },
       ToggleActionInput: {
@@ -463,7 +445,6 @@ export const openapiDocument = {
       Post,
       PaginationMeta,
       TopicSummary,
-      Section,
       Comment,
       SidebarNode,
       UploadConfig: {
@@ -611,7 +592,6 @@ export const openapiDocument = {
             description: "Danh sách topic id phân tách bởi dấu phẩy (VD: id1,id2)",
           },
           { name: "tagId", in: "query", schema: { type: "string" } },
-          { name: "sectionId", in: "query", schema: { type: "string" } },
           { name: "authorId", in: "query", schema: { type: "integer" } },
         ],
         responses: {
@@ -898,64 +878,6 @@ export const openapiDocument = {
           "401": unauthorized(),
           "403": forbidden(),
           "422": validation(),
-        },
-      },
-    },
-    "/api/v1/topics/sections": {
-      get: {
-        tags: ["Topics"],
-        summary: "Các section của nhiều chủ đề một lúc (kèm bài viết đã xuất bản)",
-        parameters: [
-          {
-            name: "slugs",
-            in: "query",
-            required: true,
-            schema: { type: "string", minLength: 1 },
-            description: "Danh sách topicSlug phân tách bởi dấu phẩy (VD: song-mot-minh,ca-phe-tai-nha)",
-          },
-        ],
-        responses: {
-          "200": {
-            description: "Danh sách section theo thứ tự slugs yêu cầu",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    success: { type: "boolean" },
-                    data: { type: "array", items: { $ref: "#/components/schemas/Section" } },
-                  },
-                },
-              },
-            },
-          },
-          "422": validation(),
-        },
-      },
-    },
-    "/api/v1/topics/{slug}/sections": {
-      parameters: [
-        { name: "slug", in: "path", required: true, schema: { type: "string", minLength: 1 }, description: "Slug của section-group (topicSlug)" },
-      ],
-      get: {
-        tags: ["Topics"],
-        summary: "Các section thuộc một chủ đề (kèm bài viết đã xuất bản)",
-        responses: {
-          "200": {
-            description: "Danh sách section",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    success: { type: "boolean" },
-                    data: { type: "array", items: { $ref: "#/components/schemas/Section" } },
-                  },
-                },
-              },
-            },
-          },
-          "404": notFound("section cho chủ đề này"),
         },
       },
     },

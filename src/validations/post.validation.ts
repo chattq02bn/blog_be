@@ -12,7 +12,6 @@ export const createPostSchema = z.object({
   status: postStatusSchema.default("draft"),
   topicIds: z.array(z.string().min(1)).default([]),
   tagIds: z.array(z.string().min(1)).default([]),
-  sectionId: z.string().min(1).nullable().optional(),
 });
 
 export const updatePostSchema = createPostSchema.partial();
@@ -32,13 +31,7 @@ export const listPostsQuerySchema = z.object({
       message: "topicIds must be a comma-separated list of ids",
     }),
   tagId: z.string().trim().min(1).optional(),
-  sectionId: z.string().trim().min(1).optional(),
   authorId: z.coerce.number().int().positive().optional(),
-});
-
-export const listPostsBySectionSchema = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(12),
 });
 
 export const idParamSchema = z.object({
@@ -57,4 +50,3 @@ export const toggleActionBodySchema = z.object({
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 export type ListPostsQuery = z.infer<typeof listPostsQuerySchema>;
-export type ListPostsBySectionQuery = z.infer<typeof listPostsBySectionSchema>;

@@ -19,7 +19,6 @@ type PostRow = {
   status: "DRAFT" | "PUBLISHED";
   likes: number;
   bookmarks: number;
-  sectionId: string | null;
   createdAt: Date;
   updatedAt: Date;
   authorId: number;
@@ -39,7 +38,6 @@ const POST_SELECT = {
   status: true,
   likes: true,
   bookmarks: true,
-  sectionId: true,
   authorId: true,
   createdAt: true,
   updatedAt: true,
@@ -67,7 +65,6 @@ export function serializePost(post: PostRow) {
     likes: post.likes,
     bookmarks: post.bookmarks,
     commentsCount: post._count?.comments ?? 0,
-    sectionId: post.sectionId,
     topicIds: (post.topics ?? []).map((topic) => topic.id),
     tagIds: (post.tags ?? []).map((tag) => tag.id),
     topics: post.topics ?? [],
@@ -112,9 +109,6 @@ function buildWhere(query: ListPostsQuery) {
   if (query.authorId !== undefined) {
     where.authorId = query.authorId;
   }
-  if (query.sectionId !== undefined) {
-    where.sectionId = query.sectionId;
-  }
   if (query.topicId) {
     where.topics = { some: { id: query.topicId } };
   }
@@ -149,7 +143,6 @@ async function createPost(authorId: number, input: CreatePostInput) {
       cover: input.cover ?? null,
       bodyBlocks: input.bodyBlocks as unknown as Prisma.InputJsonValue[],
       status: input.status === "published" ? "PUBLISHED" : "DRAFT",
-      sectionId: input.sectionId ?? null,
       authorId,
       ...(input.topicIds.length > 0 ? { topics: { connect: input.topicIds.map((id) => ({ id })) } } : {}),
       ...(input.tagIds.length > 0 ? { tags: { connect: input.tagIds.map((id) => ({ id })) } } : {}),
@@ -214,7 +207,6 @@ async function updatePost(id: string, requester: AuthUser, input: UpdatePostInpu
     ...(input.status !== undefined
       ? { status: input.status === "published" ? "PUBLISHED" : "DRAFT" }
       : {}),
-    ...(input.sectionId !== undefined ? { sectionId: input.sectionId } : {}),
     ...(input.topicIds !== undefined ? { topics: { set: input.topicIds.map((tid) => ({ id: tid })) } } : {}),
     ...(input.tagIds !== undefined ? { tags: { set: input.tagIds.map((tid) => ({ id: tid })) } } : {}),
   };
@@ -364,6 +356,170 @@ async function getBulkLikeStates(postIds: string[], commenterId?: number): Promi
   return result;
 }
 
+/** Lấy bài viết theo sidebar: "Danh sách về X" + từng topic con (topics phân trang) */
+async function listTopicPosts(
+  topicSlug: string,
+  page = 1,
+  limit = 12,
+  sidebarId?: string,
+  topicsPage = 1,
+  topicsLimit = 10,
+) {
+  const sidebarItem = sidebarId
+    ? await prisma.sidebarItem.findUnique({
+        where: { id: sidebarId },
+        select: {
+          name: true,
+          slug: true,
+          description: true,
+          topics: { select: { id: true, name: true, description: true } },
+          children: {
+            select: {
+              topics: { select: { id: true, name: true, description: true } },
+            },
+          },
+        },
+      })
+    : await prisma.sidebarItem.findFirst({
+        where: { slug: topicSlug },
+        select: {
+          name: true,
+          slug: true,
+          description: true,
+          topics: { select: { id: true, name: true, description: true } },
+          children: {
+            select: {
+              topics: { select: { id: true, name: true, description: true } },
+            },
+          },
+        },
+      });
+
+  const slugActual = sidebarItem?.slug ?? topicSlug;
+
+  if (!sidebarItem) {
+    return {
+      sidebar: { name: slugActual, description: "", slug: slugActual },
+      allPosts: { data: [] as ReturnType<typeof serializePost>[], meta: { page, limit, total: 0, totalPages: 0 } },
+      topics: [] as { id: string; name: string; description: string; posts: ReturnType<typeof serializePost>[] }[],
+      topicPostCount: 0,
+      totalTopics: 0,
+      totalTopicsPages: 0,
+    };
+  }
+
+  // Gom tất cả topic ids (parent + children)
+  const allTopicIds: string[] = [];
+  const topicInfoMap = new Map<string, { id: string; name: string; description: string }>();
+  for (const t of sidebarItem.topics) {
+    allTopicIds.push(t.id);
+    topicInfoMap.set(t.id, t);
+  }
+  for (const child of sidebarItem.children) {
+    for (const t of child.topics) {
+      allTopicIds.push(t.id);
+      topicInfoMap.set(t.id, t);
+    }
+  }
+
+  if (allTopicIds.length === 0) {
+    return {
+      sidebar: { name: sidebarItem.name, description: sidebarItem.description ?? "", slug: slugActual },
+      allPosts: { data: [], meta: { page, limit, total: 0, totalPages: 0 } },
+      topics: [],
+      topicPostCount: 0,
+      totalTopics: 0,
+      totalTopicsPages: 0,
+    };
+  }
+
+  // "Danh sách về X" — tất cả bài viết phân trang
+  const skip = (page - 1) * limit;
+  const [allPublishedPosts, totalPosts] = await Promise.all([
+    prisma.post.findMany({
+      where: { topics: { some: { id: { in: allTopicIds } } }, status: "PUBLISHED" },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      select: POST_SELECT,
+    }),
+    prisma.post.count({
+      where: { topics: { some: { id: { in: allTopicIds } } }, status: "PUBLISHED" },
+    }),
+  ]);
+
+  // Phân trang topics
+  const uniqueTopicIds = [...new Set(allTopicIds)];
+  const totalTopics = uniqueTopicIds.length;
+  const totalTopicsPages = Math.ceil(totalTopics / topicsLimit);
+  const topicsSkip = (topicsPage - 1) * topicsLimit;
+  const pagedTopicIds = uniqueTopicIds.slice(topicsSkip, topicsSkip + topicsLimit);
+
+  // Mỗi topic lấy 14 bài preview
+  const PREVIEW_LIMIT = 14;
+  const topicPostResults = await Promise.all(
+    pagedTopicIds.map((tid) =>
+      prisma.post.findMany({
+        where: { topics: { some: { id: tid } }, status: "PUBLISHED" },
+        orderBy: { createdAt: "desc" },
+        take: PREVIEW_LIMIT,
+        select: POST_SELECT,
+      })
+    )
+  );
+
+  const topics = pagedTopicIds.map((tid, idx) => {
+    const info = topicInfoMap.get(tid)!;
+    return {
+      id: info.id,
+      name: info.name,
+      description: info.description ?? "",
+      posts: topicPostResults[idx]!.map(serializePost),
+    };
+  });
+
+  return {
+    sidebar: { name: sidebarItem.name, description: sidebarItem.description ?? "", slug: slugActual },
+    allPosts: {
+      data: allPublishedPosts.map(serializePost),
+      meta: { page, limit, total: totalPosts, totalPages: Math.ceil(totalPosts / limit) },
+    },
+    topics,
+    topicPostCount: totalPosts,
+    totalTopics,
+    totalTopicsPages,
+  };
+}
+
+/** Lấy bài viết của 1 topic cụ thể — phân trang */
+async function listPostsByTopicId(topicId: string, page = 1, limit = 12) {
+  const topic = await prisma.topic.findUnique({
+    where: { id: topicId },
+    select: { id: true, name: true, description: true },
+  });
+  if (!topic) return null;
+
+  const skip = (page - 1) * limit;
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
+      where: { topics: { some: { id: topicId } }, status: "PUBLISHED" },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      select: POST_SELECT,
+    }),
+    prisma.post.count({
+      where: { topics: { some: { id: topicId } }, status: "PUBLISHED" },
+    }),
+  ]);
+
+  return {
+    topic,
+    data: posts.map(serializePost),
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
 export const postService = {
   createPost,
   listPosts,
@@ -375,4 +531,6 @@ export const postService = {
   togglePostLike,
   getPostLikeState,
   getBulkLikeStates,
+  listTopicPosts,
+  listPostsByTopicId,
 };

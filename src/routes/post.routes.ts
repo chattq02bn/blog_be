@@ -6,7 +6,6 @@ import {
   getLikedPostIds,
   getPostLikeState,
   listPosts,
-  listPostsBySection,
   togglePostAction,
   togglePostLike,
   updatePost,
@@ -19,7 +18,6 @@ import {
   createPostSchema,
   idParamSchema,
   listPostsQuerySchema,
-  listPostsBySectionSchema,
   reactionParamSchema,
   toggleActionBodySchema,
   updatePostSchema,
@@ -27,7 +25,6 @@ import {
 
 const router = Router();
 
-router.get("/section/:sectionId", validate(listPostsBySectionSchema, "query"), listPostsBySection);
 router.get("/liked", optionalCommenterAuth, getLikedPostIds);
 router.get("/", validate(listPostsQuerySchema, "query"), listPosts);
 router.get("/:id", validate(idParamSchema, "params"), getPost);

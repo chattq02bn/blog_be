@@ -119,10 +119,6 @@ async function main() {
 
   const tagIds = tags.map((t) => t.id);
 
-  const sections = await prisma.section.findMany({
-    select: { id: true, slug: true },
-  });
-
   console.log("[seed-topic] Creating 250 posts...");
 
   const postTitles = [
@@ -294,7 +290,6 @@ async function main() {
     const daysAgo = 1 + (i % 90);
     const createdDate = new Date(Date.now() - daysAgo * 24 * 3600 * 1000);
     const authorId = allAuthors[i % allAuthors.length];
-    const sectionId = sections[i % sections.length]?.id ?? null;
 
     const post = await prisma.post.create({
       data: {
@@ -306,7 +301,6 @@ async function main() {
         status: i % 10 === 9 ? "DRAFT" : "PUBLISHED",
         likes: 50 + ((i * 137) % 800),
         bookmarks: 20 + ((i * 61) % 300),
-        sectionId,
         authorId,
         createdAt: createdDate,
         updatedAt: createdDate,

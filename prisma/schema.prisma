@@ -74,18 +74,6 @@ model Tag {
   @@map("tags")
 }
 
-model Section {
-  id          String @id @default(cuid())
-  slug        String @unique
-  title       String @db.VarChar(120)
-  description String? @db.Text
-  topicSlug   String
-  idx         Int    @default(0)
-  posts       Post[]
-
-  @@map("sections")
-}
-
 model SidebarItem {
   id          String        @id @default(cuid())
   name        String        @db.VarChar(120)
@@ -114,8 +102,6 @@ model Post {
   status     PostStatus @default(DRAFT)
   likes      Int        @default(0)
   bookmarks  Int        @default(0)
-  sectionId  String?
-  section    Section?   @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   authorId   Int
   author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
   topics     Topic[]
@@ -128,7 +114,6 @@ model Post {
 
   @@index([authorId])
   @@index([status, createdAt])
-  @@index([sectionId])
   @@map("posts")
 }
 

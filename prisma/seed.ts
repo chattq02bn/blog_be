@@ -73,7 +73,6 @@ async function main() {
     "post_likes",
     "comments",
     "posts",
-    "sections",
     "sidebar_items",
     "topics",
     "tags",
@@ -350,244 +349,10 @@ async function main() {
   }
   console.log(`[seed] Created ${BULK_CHILDREN_TOTAL} bulk sidebar children`);
 
-  console.log("[seed] Creating sections...");
-  const sectionDefs = [
-    { slug: "y-tuong-song", title: "Ý tưởng sống", description: "Nhà cửa, nội thất và việc nhà. Những cách vun vén một ngày sống thoải mái hơn." },
-    { slug: "meo-nho", title: "Mẹo nhỏ mỗi ngày", description: "Những thủ thuật nhỏ giúp cuộc sống gọn gàng và dễ chịu hơn." },
-    { slug: "cau-chuyen", title: "Câu chuyện thường ngày", description: "Tản mạn, cảm xúc và những câu chuyện rất đời." },
-  ];
-
-  const sections: Record<string, string> = {};
-  for (const [i, def] of sectionDefs.entries()) {
-    const section = await prisma.section.create({
-      data: { ...def, topicSlug: "lifestyle", idx: i },
-    });
-    sections[def.slug] = section.id;
-  }
-
-  console.log("[seed] Creating sections for sidebar topics...");
-  /* Mỗi mục trong sidebar (cha hoặc con) có nhóm section riêng — trang chủ đề sẽ dùng */
-  const extraGroups: {
-    topicSlug: string;
-    topicName?: string;
-    topicNames?: string[];
-    sections: { slug: string; title: string; description: string; topicSlug?: string }[];
-    ideas: string[];
-  }[] = [
-    {
-      topicSlug: "xu-huong",
-      topicName: "Cà phê nhà",
-      sections: [
-        { slug: "xu-huong-noi-bat", title: "Đang được yêu thích", description: "Những chủ đề cộng đồng note đang bàn tán nhiều nhất tuần qua." },
-      ],
-      ideas: [
-        "Xu hướng cà phê sạch đang thay đổi thói quen người trẻ",
-        "Cold brew tại nhà: công thức chuẩn quán cho ngày nóng",
-        "Vì sao cà phê rang mộc đang trở lại?",
-        "5 góc làm việc đáng ghé nếu bạn thích nhâm nhi cà phê",
-      ],
-    },
-    {
-      topicSlug: "tap-chi",
-      topicName: "Chuyện nhà tôi",
-      sections: [
-        { slug: "tap-chi-dac-biet", title: "Số đặc biệt", description: "Tuyển chọn những câu chuyện dài kỳ được đọc nhiều nhất tháng." },
-        { slug: "tap-chi-thuong-nhat", title: "Nhịp sống thường nhật", description: "Góc nhìn nhẹ nhàng về việc nhà, bữa cơm và những buổi chiều." },
-      ],
-      ideas: [
-        "Một tháng gọn lỏi đồ đạc: hành trình của gia đình nhỏ",
-        "Bữa cơm chiều và bí quyết giữ lửa căn bếp",
-        "Nhật ký sửa nhà 30 ngày không tranh cãi",
-        "Kể lại chuyến đi đầu tiên cùng con",
-        "Những món đồ cũ mang cả ký ức",
-        "Cuối tuần ở nhà vẫn vui như đi chơi",
-      ],
-    },
-    {
-      topicSlug: "song-mot-minh",
-      topicName: "Sống một mình",
-      sections: [
-        { slug: "song-mot-minh-kinh-nghiem", title: "Kinh nghiệm tự lập", description: "Bài học thực tế được đúc kết từ đời sống một mình." },
-        { slug: "song-mot-minh-goc-nho", title: "Góc nhỏ của tôi", description: "Dọn gọn, nấu nướng và tự thưởng cho bản thân." },
-      ],
-      ideas: [
-        "Thuê nhà lần đầu: 8 điều ai cũng nên biết",
-        "Nấu ăn cho một người không hề buồn",
-        "Hộp thuốc thông minh cho người sống một mình",
-        "Chi phí sinh hoạt tháng đầu tự lập: sổ tay chi tiết",
-        "An toàn khi ở một mình: thói quen nhỏ cứu nguy lớn",
-        "Tự sửa vòi nước lần đầu và cái kết bất ngờ",
-        "Một mình ăn Tết: menu gợi ý đủ đầy cho đêm trừ",
-      ],
-    },
-    {
-      topicSlug: "ca-phe-tai-nha",
-      topicName: "Cà phê nhà",
-      sections: [
-        { slug: "ca-phe-tai-nha-cong-thuc", title: "Công thức pha chế", description: "Từ phin truyền thống đến latte nhà làm không cần máy móc." },
-        { slug: "ca-phe-tai-nha-dung-cu", title: "Dụng cụ tối giản", description: "Chỉ vài món cơ bản là đủ một góc cà phê trong nhà." },
-      ],
-      ideas: [
-        "Pha phin ngon: tỉ lệ vàng 1:8 đơn giản nhất",
-        "Tự làm sữa hạt cho latte không bị vón",
-        "Bảo quản cà phê nguyên chất đúng cách",
-        "Bạc xỉu tại nhà ngọt nhạt vừa vặn miệng",
-        "Chọn mua máy xay đầu tiên cho người mới bắt đầu",
-        "Trà chanh muối kiểu quán làm trong 10 phút",
-      ],
-    },
-    {
-      topicSlug: "day-som-5-gio",
-      topicName: "Sống chậm",
-      sections: [
-        { slug: "day-som-thu-quen", title: "Thử thách 21 ngày", description: "Nhật ký tập dậy sớm của những người rất bình thường." },
-        { slug: "day-som-buoi-sang", title: "Buổi sáng riêng tư", description: "Routine buổi sáng giúp cả ngày nhẹ nhàng hơn." },
-      ],
-      ideas: [
-        "Ngày đầu dậy 5 giờ: cái kết không như mong đợi",
-        "Routine buổi tối giúp sáng mai dễ dàng hơn",
-        "Tôi làm gì trong 2 tiếng im lặng mỗi sáng",
-        "Dậy sớm mà không mệt: 5 nguyên tắc giấc ngủ",
-        "Tuần thứ ba của thử thách dậy sớm: gần bỏ cuộc rồi",
-        "Bữa sáng nhanh gọn cho ngày bắt đầu lúc 5 giờ",
-      ],
-    },
-    {
-      topicSlug: "viec-lam-them",
-      topicName: "Mẹo tiết kiệm",
-      sections: [
-        { slug: "viec-lam-them-kinh-nghiem", title: "Trải nghiệm thật", description: "Những công việc làm thêm và bài học từ thu nhập đầu tiên." },
-      ],
-      ideas: [
-        "Làm thêm cuối tuần: nên bắt đầu từ đâu?",
-        "Bán đồ handmade online: tháng đầu ra là thế?",
-        "Việc part-time cho sinh viên: chọn thế nào cho khôn",
-        "Thu nhập phụ đầu tiên và cách tôi chi tiêu nó",
-      ],
-    },
-    {
-      topicSlug: "meo-tiet-kiem",
-      topicName: "Mẹo tiết kiệm",
-      sections: [
-        { slug: "meo-tiet-kiem-chi-tieu", title: "Quản lý chi tiêu", description: "Sổ tay chi tiêu và những con số biết nói." },
-        { slug: "meo-tiet-kiem-sanh-de", title: "Tiết kiệm không khó", description: "Mẹo nhỏ áp dụng ngay hôm nay cho ví tiền nhẹ nhõm." },
-      ],
-      ideas: [
-        "Quy tắc 50/30/20 áp dụng thực tế tháng đầu",
-        "Siêu thị cuối tuần: danh sách giúp đỡ tiêu hao tiền",
-        "Hóa đơn điện giảm 20% nhờ 6 thói quen nhỏ",
-        "Mục tiêu tiết kiệm 10 triệu: lộ trình 100 ngày",
-        "Mua sắm online thông minh tránh bẫy giảm giá",
-        "Nấu ăn tại nhà tiết kiệm bao nhiêu? Con số thật",
-        "Kỹ năng thương lượng giá khi thuê nhà",
-      ],
-    },
-    {
-      topicSlug: "du-lich",
-      topicNames: ["Du lịch bụi"],
-      sections: [
-        { slug: "da-lat-2-ngay", title: "Lịch trình Đà Lạt 2 ngày", description: "Tối giản thời gian mà vẫn trọn vị Đà Lạt.", topicSlug: "da-lat-cuoi-tuan" },
-        { slug: "sapa-vi-mong", title: "Sapa cho ví mỏng", description: "Chi phí thực tế từng khoản khi đi Sapa tự túc.", topicSlug: "sapa-tu-tuc" },
-      ],
-      ideas: [
-        "Lịch trình Đà Lạt tự túc 2 ngày 1 đêm cho nhóm bạn",
-        "Sapa mùa lúa chín: đi đâu, ăn gì, chi phí bao nhiêu?",
-        "Mẹo săn vé xe giá rẻ dịp cuối tuần",
-        "Những quán cà phê view săn mây đáng ghé",
-      ],
-    },
-    {
-      topicSlug: "cong-so",
-      topicNames: ["Thời trang công sở"],
-      sections: [
-        { slug: "phoi-do-tuan-le", title: "Phối đồ cả tuần", description: "Lịch phối đồ từ thứ Hai đến thứ Sáu.", topicSlug: "phoi-do-thu-hai" },
-        { slug: "chon-giay-di-lam", title: "Chọn giày đi làm", description: "Đẹp, bền và không đau chân sau 8 tiếng.", topicSlug: "giay-dep-van-phong" },
-      ],
-      ideas: [
-        "Bảng màu an toàn cho tủ đồ công sở",
-        "Cách phối blazer không bị già trước tuổi",
-        "Giày da mới mua nên xử lý gì trước khi đi làm",
-        "Chiếc túi vừa đẹp vừa đủ đựng laptop",
-      ],
-    },
-    {
-      topicSlug: "nha-cua",
-      topicNames: ["Nội thất căn hộ nhỏ"],
-      sections: [
-        { slug: "dung-goc-lam-viec", title: "Dựng góc làm việc", description: "2m² đủ xanh, đủ sáng, đủ tập trung.", topicSlug: "goc-lam-viec" },
-        { slug: "sap-xep-bep-nho", title: "Sắp xếp bếp nhỏ", description: "Nguyên tắc tam giác vàng cho bếp chật.", topicSlug: "bep-nho-gon-gang" },
-      ],
-      ideas: [
-        "Dựng góc làm việc 2m vuông dưới tay em",
-        "Bàn kéo thông minh cho căn hộ studio",
-        "Sắp xếp tủ bếp theo nguyên tắc tam giác vàng",
-        "5 phụ kiện giúp bếp nhỏ sạch lâu bẩn",
-      ],
-    },
-    {
-      topicSlug: "suc-khoe",
-      topicNames: ["Sức khỏe tinh thần", "Fitness tại nhà"],
-      sections: [
-        { slug: "thien-10-phut", title: "Thiền 10 phút", description: "Khởi đầu nhẹ nhàng cho người bận rộn.", topicSlug: "thien-buoi-sang" },
-        { slug: "bai-tap-tai-ban", title: "Vận động tại bàn", description: "Đau cổ vai gáy thì làm ngay những này.", topicSlug: "bai-tap-tai-ban" },
-      ],
-      ideas: [
-        "Thiền 10 phút mỗi sáng đổi thay gì sau một tháng?",
-        "Hít thở 4-7-8 chữa mất ngủ có thật sự hiệu quả?",
-        "Đau cổ vai gáy vì ngồi máy tính: bài tập tại bàn",
-        "Squat tại nhà 30 ngày, kết quả bất ngờ",
-      ],
-    },
-    {
-      topicSlug: "an-uong",
-      topicNames: ["Ẩm thực đường phố", "Công thức chay"],
-      sections: [
-        { slug: "cho-dem-an-gi", title: "Chợ đêm ăn gì", description: "Không bỏ lỡ món nào trong một buổi dạo.", topicSlug: "cho-dem-cuoi-tuan" },
-        { slug: "mon-chay-don-gian", title: "Món chay đơn giản", description: "Đủ dinh dưỡng, dễ nấu, dễ ghiền.", topicSlug: "mon-chay-gia-man" },
-      ],
-      ideas: [
-        "Chợ đêm cuối tuần nên ăn gì để không lỡ món nào?",
-        "Bánh tráng nướng kiểu Đà Lạt làm tại nhà",
-        "Món chay giả mặn cho bữa cơm ngày rằm",
-        "Ốc luộc sốt ớt cay xé lưỡi mà lại ghiền",
-      ],
-    },
-    {
-      topicSlug: "so-tay-song",
-      topicNames: ["Thú cưng", "Đọc sách mỗi ngày"],
-      sections: [
-        { slug: "lan-dau-nuoi-meo", title: "Lần đầu nuôi mèo", description: "Chuẩn bị từ A đến Z cho mèo con về nhà.", topicSlug: "nuoi-meo-lan-dau" },
-        { slug: "doc-sach-nam-nay", title: "Đọc sách năm nay", description: "Lộ trình 50 cuốn và cách chọn sách đáng đọc.", topicSlug: "50-cuon-sach-trong-nam" },
-      ],
-      ideas: [
-        "Nuôi mèo lần đầu: những thứ phải chuẩn bị trước khi đưa bé về",
-        "Tiêm phòng & tẩy giun cho mèo con: lịch cụ thể",
-        "50 cuốn sách đáng đọc trong năm, chọn từ 500 cuốn",
-        "Phương pháp đọc nhanh mà vẫn nhớ lâu",
-      ],
-    },
-  ];
-
-  for (const group of extraGroups) {
-    for (const [i, def] of group.sections.entries()) {
-      const section = await prisma.section.create({
-        data: {
-          slug: def.slug,
-          title: def.title,
-          description: def.description,
-          topicSlug: def.topicSlug ?? group.topicSlug,
-          idx: i,
-        },
-      });
-      sections[def.slug] = section.id;
-    }
-  }
-
   console.log("[seed] Creating posts...");
   type PostDef = {
     title: string;
     excerpt: string;
-    section: string;
     authorIdx: number;
     status: "published" | "draft";
     daysAgo: number;
@@ -598,42 +363,33 @@ async function main() {
     intro: string;
   };
 
-  /* Sinh bài viết cho các section của sidebar topic — trải đều theo vòng tròn */
+  /* Sinh bài viết cho sidebar topics — trải đều theo vòng tròn */
   const generatedPostDefs: PostDef[] = [];
   let genIndex = 0;
-  for (const group of extraGroups) {
-    const sectionKeys = group.sections.map((section) => section.slug);
-    const connectNames = [
-      ...(group.topicName ? [group.topicName] : []),
-      ...(group.topicNames ?? []),
-    ];
-    group.ideas.forEach((title, j) => {
-      generatedPostDefs.push({
-        title,
-        excerpt: `${title} — góc chia sẻ từ cộng đồng note.`,
-        section: sectionKeys[j % sectionKeys.length]!,
-        authorIdx: (genIndex + 1) % authors.length,
-        status: genIndex % 9 === 8 ? "draft" : "published",
-        daysAgo: 11 + ((genIndex * 3) % 45),
-        likes: 120 + ((genIndex * 137) % 900),
-        bookmarks: 40 + ((genIndex * 61) % 300),
-        topics: [
-          lifestyle.id,
-          ...connectNames.map((name) => topics[name]).filter((id): id is string => Boolean(id)),
-        ],
-        tagList: [
-          tagNames[genIndex % tagNames.length]!,
-          tagNames[(genIndex + 3) % tagNames.length]!,
-        ],
-        intro: `Chuyên mục nhỏ trong chủ đề này. ${title}.`,
-      });
-      genIndex += 1;
+  const topicEntries = Object.entries(topics);
+  for (let i = 0; i < 60; i++) {
+    const [, topicId] = topicEntries[i % topicEntries.length]!;
+    const title = `Bài viết chủ đề ${i + 1}: Mẹo sống xanh mỗi ngày`;
+    generatedPostDefs.push({
+      title,
+      excerpt: `${title} — góc chia sẻ từ cộng đồng note.`,
+      authorIdx: (genIndex + 1) % authors.length,
+      status: genIndex % 9 === 8 ? "draft" : "published",
+      daysAgo: 11 + ((genIndex * 3) % 45),
+      likes: 120 + ((genIndex * 137) % 900),
+      bookmarks: 40 + ((genIndex * 61) % 300),
+      topics: [lifestyle.id, topicId],
+      tagList: [
+        tagNames[genIndex % tagNames.length]!,
+        tagNames[(genIndex + 3) % tagNames.length]!,
+      ],
+      intro: `Chuyên mục nhỏ trong chủ đề này. ${title}.`,
     });
+    genIndex += 1;
   }
 
-  /* Sinh hàng loạt bài viết cho toàn bộ section & topic — dữ liệu lớn để test infinite scroll */
+  /* Sinh hàng loạt bài viết cho toàn bộ topic — dữ liệu lớn để test infinite scroll */
   const BULK_COUNT = 300;
-  const allSectionKeys = Object.keys(sections);
   const bulkSubjects = [
     "Du lịch Đà Lạt", "Phòng trọ gọn gàng", "Cây cảnh ban công", "Bữa sáng lành mạnh",
     "Sổ tay chi tiêu", "Góc làm việc tại nhà", "Thực đơn tuần", "Chăm sóc da mùa hanh",
@@ -668,7 +424,6 @@ async function main() {
     bulkPostDefs.push({
       title,
       excerpt: `${title}. Bài viết nằm trong chuỗi nội dung thường tuần của cộng đồng note.`,
-      section: allSectionKeys[i % allSectionKeys.length]!,
       authorIdx: (i + 2) % authors.length,
       status: i % 11 === 10 ? "draft" : "published",
       daysAgo: 12 + ((i * 7) % 110),
@@ -695,7 +450,6 @@ async function main() {
     {
       title: "Thói quen 10 phút buổi sáng giúp ngày sống ngăn nắp hơn",
       excerpt: "Chỉ dành 10 phút buổi sáng cho riêng mình, chất lượng cả một ngày đã đổi khác.",
-      section: "y-tuong-song",
       authorIdx: 0,
       status: "published",
       daysAgo: 2,
@@ -708,7 +462,6 @@ async function main() {
     {
       title: "Biến phòng khách thành nơi ai cũng muốn ngồi nhâm nhi cà phê",
       excerpt: "Chìa khóa nằm ở 3 điều: đèn ánh sáng gián tiếp, sách báo trong tầm tay và sofa quay hướng nắng.",
-      section: "y-tuong-song",
       authorIdx: 1,
       status: "published",
       daysAgo: 4,
@@ -721,7 +474,6 @@ async function main() {
     {
       title: "Quy tắc \"chỉ 5 phút\" giúp việc nhà không còn là gánh nặng",
       excerpt: "Đặt mục tiêu dọn sạch hoàn hảo là chưa bao giờ bắt đầu được. Tôi chọn quy tắc chỉ 5 phút.",
-      section: "y-tuong-song",
       authorIdx: 2,
       status: "published",
       daysAgo: 6,
@@ -734,7 +486,6 @@ async function main() {
     {
       title: "3 nguyên tắc vàng giúp khu vực cửa ra vào không bao giờ bừa bộn",
       excerpt: "Nguyên nhân chỉ đơn giản là \"không có chỗ để đồ\". Ba nguyên tắc sau sẽ giải quyết tận gốc.",
-      section: "y-tuong-song",
       authorIdx: 3,
       status: "published",
       daysAgo: 8,
@@ -747,7 +498,6 @@ async function main() {
     {
       title: "Cách pha latte nghệ thuật tại nhà không cần máy móc đắt tiền",
       excerpt: "Chỉ với một cái nồi nhỏ và chút kiên nhẫn, ly latte nhà làm vẫn ngon không kém quán.",
-      section: "meo-nho",
       authorIdx: 1,
       status: "published",
       daysAgo: 3,
@@ -760,7 +510,6 @@ async function main() {
     {
       title: "Đi bộ 30 phút mỗi chiều — thói quen rẻ nhất cho sức khỏe",
       excerpt: "Không cần thẻ gym, không cần dụng cụ, chỉ cần một đôi giày thoải mái và sự đều đặn.",
-      section: "meo-nho",
       authorIdx: 4,
       status: "published",
       daysAgo: 5,
@@ -773,7 +522,6 @@ async function main() {
     {
       title: "Mẹo tiết kiệm điện mùa nóng mà vẫn mát rượi",
       excerpt: "Một vài chỉnh sửa nhỏ trong thói quen dùng điện có thể cắt giảm đáng kể hóa đơn tháng.",
-      section: "meo-nho",
       authorIdx: 0,
       status: "published",
       daysAgo: 9,
@@ -786,7 +534,6 @@ async function main() {
     {
       title: "Cuối tuần dọn nhà cùng con — vừa vui vừa gọn",
       excerpt: "Biến việc nhà thành trò chơi, các con hào hứng còn mẹ bớt mỏi lưng.",
-      section: "cau-chuyen",
       authorIdx: 3,
       status: "published",
       daysAgo: 7,
@@ -799,7 +546,6 @@ async function main() {
     {
       title: "\"Viết\" là cách tôi lớn lên từ từ",
       excerpt: "Mỗi ngày 300 chữ, chẳng để ai đọc — chỉ để hiểu mình hơn qua từng trang.",
-      section: "cau-chuyen",
       authorIdx: 0,
       status: "published",
       daysAgo: 10,
@@ -812,7 +558,6 @@ async function main() {
     {
       title: "Ăn vặt văn phòng không tăng cân — 5 gợi ý thực tế",
       excerpt: "Chọn đúng loại snack và thời điểm ăn, bạn vẫn giữ được vóc dáng mà chẳng bỏ lỡ niềm vui.",
-      section: "cau-chuyen",
       authorIdx: 2,
       status: "draft",
       daysAgo: 1,
@@ -825,7 +570,6 @@ async function main() {
     {
       title: "Sống một mình: 10 món đồ nên mua ngay từ đầu",
       excerpt: "Danh sách đúc kết từ ba năm tự lập — những món nhỏ nhưng cứu cả tuần của bạn.",
-      section: "y-tuong-song",
       authorIdx: 4,
       status: "draft",
       daysAgo: 2,
@@ -838,7 +582,6 @@ async function main() {
     {
       title: "Tái chế đồ cũ trong nhà: bắt đầu từ hũ thủy tinh",
       excerpt: "Đừng vội vứt hũ thuỷ tinh — chúng là đạo cụ trang trí và lưu trữ tuyệt vời.",
-      section: "meo-nho",
       authorIdx: 1,
       status: "draft",
       daysAgo: 1,
@@ -855,50 +598,6 @@ async function main() {
     ...generatedPostDefs,
     ...bulkPostDefs,
   ];
-
-  /* Sinh ~200 bài viết cho MỖI section để test trang chi tiết section (infinite scroll) */
-  console.log("[seed] Creating ~200 posts per section...");
-  const POSTS_PER_SECTION = 10;
-  const sectionPostSubjects = [
-    "Mẹo vặt hàng ngày", "Kinh nghiệm thực tế", "Checklist chuẩn bị",
-    "So sánh các cách", "Lần đầu thử nghiệm", "Sai lầm thường gặp",
-    "Bài học rút ra", "Mẹo tiết kiệm", "Cải thiện thói quen",
-    "Tổng kết sau 30 ngày",
-  ];
-  const sectionPostAngles = [
-    "cho người mới bắt đầu", "kinh nghiệm 1 năm", "phiên bản nâng cấp",
-    "áp dụng thực tế", "chi tiết từng bước", "mẹo nhỏ nhưng hiệu quả",
-    "từ A đến Z", "dành cho người bận rộn", "tiết kiệm thời gian",
-    "hiệu quả bất ngờ",
-  ];
-
-  const sectionKeysForPosts = Object.keys(sections);
-  let sectionPostIdx = 0;
-  for (const sectionKey of sectionKeysForPosts) {
-    const topicId = topicIdList[sectionPostIdx % topicIdList.length]!;
-    for (let i = 0; i < POSTS_PER_SECTION; i += 1) {
-      const subject = sectionPostSubjects[i % sectionPostSubjects.length]!;
-      const angle = sectionPostAngles[(i * 3 + sectionPostIdx) % sectionPostAngles.length]!;
-      const title = `${subject} ${angle} — ${sectionKey}`;
-      postDefs.push({
-        title,
-        excerpt: `${title}. Bài viết chuyên sâu thuộc chuyên mục ${sectionKey}.`,
-        section: sectionKey,
-        authorIdx: (sectionPostIdx + i) % authors.length,
-        status: i % 15 === 14 ? "draft" : "published",
-        daysAgo: 1 + ((sectionPostIdx * 7 + i * 3) % 90),
-        likes: 50 + ((sectionPostIdx * 13 + i * 97) % 800),
-        bookmarks: 20 + ((sectionPostIdx * 7 + i * 43) % 200),
-        topics: [topicId],
-        tagList: [
-          tagNames[i % tagNames.length]!,
-          tagNames[(i + 5) % tagNames.length]!,
-        ],
-        intro: `Bài viết chia sẻ kinh nghiệm về ${subject.toLowerCase()}. ${angle}.`,
-      });
-    }
-    sectionPostIdx += 1;
-  }
 
   const createdPosts: { id: string; slug: string }[] = [];
 
@@ -922,7 +621,6 @@ async function main() {
         status: def.status === "published" ? "PUBLISHED" : "DRAFT",
         likes: def.likes,
         bookmarks: def.bookmarks,
-        sectionId: sections[def.section]!,
         authorId: authors[def.authorIdx]!.id,
         createdAt: createdDate,
         updatedAt: createdDate,
