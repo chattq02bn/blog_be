@@ -599,40 +599,99 @@ async function main() {
     ...bulkPostDefs,
   ];
 
+  /* ====== BATCH POST CREATION ====== */
+  const BATCH = 100;
   const createdPosts: { id: string; slug: string }[] = [];
 
-  for (const [i, def] of postDefs.entries()) {
-    const createdDate = new Date(Date.now() - def.daysAgo * 24 * 3600 * 1000);
-    const slugBase = def.title
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/đ/g, "d")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
-    const post = await prisma.post.create({
-      data: {
+  for (let batchStart = 0; batchStart < postDefs.length; batchStart += BATCH) {
+    const batch = postDefs.slice(batchStart, batchStart + BATCH);
+    const postData = batch.map((def, j) => {
+      const i = batchStart + j;
+      const createdDate = new Date(Date.now() - def.daysAgo * 24 * 3600 * 1000);
+      const slugBase = def.title
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      return {
         title: def.title,
         slug: `${slugBase}-${(i + 1).toString(36)}`,
         excerpt: def.excerpt,
         cover: `https://picsum.photos/seed/post-${i + 1}/1280/670`,
         bodyBlocks: richBlocks(i, def.intro) as unknown as Prisma.InputJsonValue[],
-        status: def.status === "published" ? "PUBLISHED" : "DRAFT",
+        status: (def.status === "published" ? "PUBLISHED" : "DRAFT") as "PUBLISHED" | "DRAFT",
         likes: def.likes,
         bookmarks: def.bookmarks,
         authorId: authors[def.authorIdx]!.id,
         createdAt: createdDate,
         updatedAt: createdDate,
-        ...(def.topics.length ? { topics: { connect: def.topics.map((id) => ({ id })) } } : {}),
-        ...(def.tagList.length ? { tags: { connect: def.tagList.map((name) => ({ id: tags[name]! })) } } : {}),
-      },
-      select: { id: true, slug: true },
+      };
     });
 
-    createdPosts.push(post);
+    const inserted = await prisma.post.createMany({ data: postData });
+    console.log(`[seed]   Created posts batch ${batchStart}-${batchStart + inserted.count} (${inserted.count})`);
+
+    /* Query back to get ids + slugs */
+    const startIdx = batchStart;
+    const endIdx = batchStart + batch.length;
+    const slugs = batch.map((_, j) => `${postDefs[startIdx + j].title
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")}-${(startIdx + j + 1).toString(36)}`);
+    const rows = await prisma.$queryRawUnsafe<{ id: string; slug: string }[]>(
+      `SELECT id, slug FROM posts WHERE slug = ANY($1)`,
+      slugs
+    );
+    const bySlug = new Map(rows.map((r) => [r.slug, r.id]));
+    for (const slug of slugs) {
+      const id = bySlug.get(slug);
+      if (id) createdPosts.push({ id, slug });
+    }
+
+    /* Connect topics via junction table */
+    const topicRows: { postId: string; topicId: string }[] = [];
+    for (let j = 0; j < batch.length; j++) {
+      const def = batch[j]!;
+      const pid = bySlug.get(slugs[j]!)!;
+      for (const tid of def.topics) {
+        topicRows.push({ postId: pid, topicId: tid });
+      }
+    }
+    if (topicRows.length > 0) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "_PostToTopic" ("A", "B") SELECT "postId", "topicId" FROM unnest($1::text[], $2::text[]) AS t("postId", "topicId") ON CONFLICT DO NOTHING`,
+        topicRows.map((r) => r.postId),
+        topicRows.map((r) => r.topicId)
+      );
+    }
+
+    /* Connect tags via junction table */
+    const tagRows: { postId: string; tagId: string }[] = [];
+    for (let j = 0; j < batch.length; j++) {
+      const def = batch[j]!;
+      const pid = bySlug.get(slugs[j]!)!;
+      for (const name of def.tagList) {
+        const tid = tags[name];
+        if (tid) tagRows.push({ postId: pid, tagId: tid });
+      }
+    }
+    if (tagRows.length > 0) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "_PostToTag" ("A", "B") SELECT "postId", "tagId" FROM unnest($1::text[], $2::text[]) AS t("postId", "tagId") ON CONFLICT DO NOTHING`,
+        tagRows.map((r) => r.postId),
+        tagRows.map((r) => r.tagId)
+      );
+    }
   }
 
+  console.log(`[seed] Total ${createdPosts.length} posts created`);
+
+  /* ====== BATCH COMMENT CREATION ====== */
   console.log("[seed] Creating comments...");
   const guestNames = [
     "Bầu trời xanh",
@@ -645,7 +704,6 @@ async function main() {
     "Lá thu vàng",
   ];
 
-  /* Tạo commenters từ guestNames */
   const commenters = await Promise.all(
     guestNames.map((nickname) =>
       prisma.commenter.upsert({
@@ -680,50 +738,72 @@ async function main() {
     "Chuẩn luôn, thêm chút kiên nhẫn là ổn thoy.",
   ];
 
-  /* Dữ liệu test: mỗi bài ~15 comment cha + 10 reply */
   const COMMENTS_PER_POST = 15;
   const REPLIES_PER_POST = 10;
+  const COMMENT_BATCH = 500;
 
+  /* Build all parent comment rows at once */
+  const allParentRows: { postId: string; commenterId: number; content: string; createdAt: Date }[] = [];
   for (const [postIdx, post] of createdPosts.entries()) {
-    const parentRows = Array.from({ length: COMMENTS_PER_POST }, (_, i) => {
+    for (let i = 0; i < COMMENTS_PER_POST; i++) {
       const commenter = commenters[i % commenters.length]!;
-      return {
+      allParentRows.push({
         postId: post.id,
         commenterId: commenter.id,
         content: commentPool[i % commentPool.length]!,
         createdAt: new Date(Date.now() - ((postIdx * COMMENTS_PER_POST + i * 7) % 180) * 24 * 3600 * 1000),
-      };
-    });
-
-    /* createManyAndReturn trả về id để gắn reply vào đúng comment cha */
-    const createdParents = await prisma.comment.createManyAndReturn({
-      data: parentRows,
-      select: { id: true },
-    });
-
-    const replyRows = Array.from({ length: REPLIES_PER_POST }, (_, i) => ({
-      postId: post.id,
-      parentId: createdParents[i % createdParents.length]!.id,
-      commenterId: commenters[(i + 2) % commenters.length]!.id,
-      content: replyPool[i % replyPool.length]!,
-      createdAt: new Date(Date.now() - ((i * 5) % 150) * 24 * 3600 * 1000),
-    }));
-    await prisma.comment.createMany({ data: replyRows });
-
-    /* Thả vài reaction cho bài đầu tiên */
-    if (postIdx === 0) {
-      await prisma.commentReaction.createMany({
-        data: createdParents.slice(0, 10).map((c, i) => ({
-          commentId: c.id,
-          userId: admin.id,
-          emoji: i % 2 ? "❤️" : "👍",
-        })),
       });
     }
   }
 
+  /* Insert parents in batches and collect their IDs for replies */
+  const allParentIds: { postId: string; id: string }[] = [];
+  for (let i = 0; i < allParentRows.length; i += COMMENT_BATCH) {
+    const batch = allParentRows.slice(i, i + COMMENT_BATCH);
+    const returned = await prisma.comment.createManyAndReturn({
+      data: batch,
+      select: { id: true, postId: true },
+    });
+    allParentIds.push(...returned);
+    console.log(`[seed]   Created parent comments batch ${i}-${i + returned.length}`);
+  }
+
+  /* Build all reply rows */
+  const allReplyRows: { postId: string; parentId: string; commenterId: number; content: string; createdAt: Date }[] = [];
+  for (const [postIdx, post] of createdPosts.entries()) {
+    const postParents = allParentIds.filter((p) => p.postId === post.id);
+    for (let i = 0; i < REPLIES_PER_POST; i++) {
+      allReplyRows.push({
+        postId: post.id,
+        parentId: postParents[i % postParents.length]!.id,
+        commenterId: commenters[(i + 2) % commenters.length]!.id,
+        content: replyPool[i % replyPool.length]!,
+        createdAt: new Date(Date.now() - ((i * 5) % 150) * 24 * 3600 * 1000),
+      });
+    }
+  }
+
+  /* Insert replies in batches */
+  for (let i = 0; i < allReplyRows.length; i += COMMENT_BATCH) {
+    const batch = allReplyRows.slice(i, i + COMMENT_BATCH);
+    await prisma.comment.createMany({ data: batch });
+    console.log(`[seed]   Created reply batch ${i}-${i + batch.length}`);
+  }
+
+  /* Reactions for first post */
+  const firstPostParents = allParentIds.filter((p) => p.postId === createdPosts[0]?.id).slice(0, 10);
+  if (firstPostParents.length > 0) {
+    await prisma.commentReaction.createMany({
+      data: firstPostParents.map((c, i) => ({
+        commentId: c.id,
+        userId: admin.id,
+        emoji: i % 2 ? "❤️" : "👍",
+      })),
+    });
+  }
+
   console.log(
-    `[seed] Created ${createdPosts.length * (COMMENTS_PER_POST + REPLIES_PER_POST)} comments`
+    `[seed] Created ${allParentRows.length + allReplyRows.length} comments`
   );
 
   console.log("[seed] Creating visit stats for 2026...");

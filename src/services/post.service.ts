@@ -2,6 +2,7 @@ import { prisma } from "../config/prisma.js";
 import { Prisma } from "../generated/prisma/client.js";
 import ApiError from "../utils/ApiError.js";
 import { slugify } from "../utils/slugify.js";
+import { logger } from "../utils/logger.js";
 import type { AuthUser } from "../types/auth.types.js";
 import type {
   CreatePostInput,
@@ -22,7 +23,9 @@ type PostRow = {
   createdAt: Date;
   updatedAt: Date;
   authorId: number;
+  sidebarId?: string | null;
   author?: { id: number; name: string | null; email: string; avatar?: string | null; description?: string | null } | null;
+  sidebar?: { id: string; name: string; slug: string } | null;
   topics?: { id: string; name: string }[] | null;
   tags?: { id: string; name: string }[] | null;
   _count?: { comments: number } | null;
@@ -39,9 +42,11 @@ const POST_SELECT = {
   likes: true,
   bookmarks: true,
   authorId: true,
+  sidebarId: true,
   createdAt: true,
   updatedAt: true,
   author: { select: { id: true, name: true, email: true, avatar: true, description: true } },
+  sidebar: { select: { id: true, name: true, slug: true } },
   topics: { select: { id: true, name: true }, orderBy: { name: "asc" as const } },
   tags: { select: { id: true, name: true }, orderBy: { name: "asc" as const } },
   _count: { select: { comments: true } },
@@ -69,6 +74,8 @@ export function serializePost(post: PostRow) {
     tagIds: (post.tags ?? []).map((tag) => tag.id),
     topics: post.topics ?? [],
     tags: post.tags ?? [],
+    sidebarId: post.sidebarId ?? null,
+    sidebar: post.sidebar ?? null,
     author,
     authorAvatar: author?.avatar ?? null,
     authorName: author ? (author.name ?? author.email) : "Ẩn danh",
@@ -122,6 +129,9 @@ function buildWhere(query: ListPostsQuery) {
   if (query.tagId) {
     where.tags = { some: { id: query.tagId } };
   }
+  if (query.sidebarId) {
+    where.sidebarId = query.sidebarId;
+  }
   if (query.q) {
     where.OR = [
       { title: { contains: query.q, mode: "insensitive" as const } },
@@ -135,6 +145,28 @@ function buildWhere(query: ListPostsQuery) {
 async function createPost(authorId: number, input: CreatePostInput) {
   const slug = await uniqueSlug(input.title);
 
+  if (input.sidebarId) {
+    const exists = await prisma.sidebarItem.findUnique({ where: { id: input.sidebarId }, select: { id: true } });
+    if (!exists) {
+      logger.warn("[post.create] Sidebar not found:", input.sidebarId);
+      throw ApiError.badRequest("Sidebar not found");
+    }
+  }
+  if (input.topicIds.length > 0) {
+    const count = await prisma.topic.count({ where: { id: { in: input.topicIds } } });
+    if (count !== input.topicIds.length) {
+      logger.warn("[post.create] Topics not found:", input.topicIds);
+      throw ApiError.badRequest("One or more topics not found");
+    }
+  }
+  if (input.tagIds.length > 0) {
+    const count = await prisma.tag.count({ where: { id: { in: input.tagIds } } });
+    if (count !== input.tagIds.length) {
+      logger.warn("[post.create] Tags not found:", input.tagIds);
+      throw ApiError.badRequest("One or more tags not found");
+    }
+  }
+
   const post = await prisma.post.create({
     data: {
       title: input.title,
@@ -144,6 +176,7 @@ async function createPost(authorId: number, input: CreatePostInput) {
       bodyBlocks: input.bodyBlocks as unknown as Prisma.InputJsonValue[],
       status: input.status === "published" ? "PUBLISHED" : "DRAFT",
       authorId,
+      sidebarId: input.sidebarId ?? null,
       ...(input.topicIds.length > 0 ? { topics: { connect: input.topicIds.map((id) => ({ id })) } } : {}),
       ...(input.tagIds.length > 0 ? { tags: { connect: input.tagIds.map((id) => ({ id })) } } : {}),
     },
@@ -199,6 +232,28 @@ async function updatePost(id: string, requester: AuthUser, input: UpdatePostInpu
 
   ensureCanManage(existing, requester);
 
+  if (input.sidebarId !== undefined && input.sidebarId !== null) {
+    const exists = await prisma.sidebarItem.findUnique({ where: { id: input.sidebarId }, select: { id: true } });
+    if (!exists) {
+      logger.warn("[post.update] Sidebar not found:", input.sidebarId);
+      throw ApiError.badRequest("Sidebar not found");
+    }
+  }
+  if (input.topicIds !== undefined && input.topicIds.length > 0) {
+    const count = await prisma.topic.count({ where: { id: { in: input.topicIds } } });
+    if (count !== input.topicIds.length) {
+      logger.warn("[post.update] Topics not found:", input.topicIds);
+      throw ApiError.badRequest("One or more topics not found");
+    }
+  }
+  if (input.tagIds !== undefined && input.tagIds.length > 0) {
+    const count = await prisma.tag.count({ where: { id: { in: input.tagIds } } });
+    if (count !== input.tagIds.length) {
+      logger.warn("[post.update] Tags not found:", input.tagIds);
+      throw ApiError.badRequest("One or more tags not found");
+    }
+  }
+
   const data: Record<string, unknown> = {
     ...(input.title !== undefined ? { title: input.title, slug: await uniqueSlug(input.title, id) } : {}),
     ...(input.excerpt !== undefined ? { excerpt: input.excerpt } : {}),
@@ -207,6 +262,7 @@ async function updatePost(id: string, requester: AuthUser, input: UpdatePostInpu
     ...(input.status !== undefined
       ? { status: input.status === "published" ? "PUBLISHED" : "DRAFT" }
       : {}),
+    ...(input.sidebarId !== undefined ? { sidebarId: input.sidebarId ?? null } : {}),
     ...(input.topicIds !== undefined ? { topics: { set: input.topicIds.map((tid) => ({ id: tid })) } } : {}),
     ...(input.tagIds !== undefined ? { tags: { set: input.tagIds.map((tid) => ({ id: tid })) } } : {}),
   };

@@ -36,6 +36,8 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 
   if (statusCode >= 500) {
     logger.error("[error]", err);
+  } else if (statusCode === 400 && err instanceof Prisma.PrismaClientKnownRequestError) {
+    logger.warn("[error] Prisma 400:", err.code, err.message);
   }
 
   res.status(statusCode).json({

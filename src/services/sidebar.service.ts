@@ -24,9 +24,11 @@ function serializeRow(
     idx: number;
     parentId?: string | null;
     topics: { id: string; _count?: { posts: number } | null }[];
-    _count?: { children: number } | null;
+    _count?: { children: number; posts?: number } | null;
   }
 ): SidebarNode {
+  const topicPostCount = row.topics.reduce((sum, topic) => sum + (topic._count?.posts ?? 0), 0);
+  const directPostCount = row._count?.posts ?? 0;
   return {
     id: row.id,
     name: row.name,
@@ -34,7 +36,7 @@ function serializeRow(
     description: row.description,
     idx: row.idx,
     topicIds: row.topics.map((topic) => topic.id),
-    postCount: row.topics.reduce((sum, topic) => sum + (topic._count?.posts ?? 0), 0),
+    postCount: topicPostCount + directPostCount,
     children: [],
     /** Số mục con trực tiếp — FE dùng để hiển thị nút mở rộng rồi load phân trang */
     childrenCount: row._count?.children ?? 0,
@@ -43,7 +45,7 @@ function serializeRow(
 
 const SIDEBAR_INCLUDE = {
   topics: { select: { id: true, _count: { select: { posts: true } } } },
-  _count: { select: { children: true } },
+  _count: { select: { children: true, posts: true } },
 } as const;
 
 function buildTree(

@@ -84,6 +84,7 @@ model SidebarItem {
   parent      SidebarItem?  @relation("SidebarTree", fields: [parentId], references: [id], onDelete: Cascade)
   children    SidebarItem[] @relation("SidebarTree")
   topics      Topic[]
+  posts       Post[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -93,17 +94,19 @@ model SidebarItem {
 }
 
 model Post {
-  id         String     @id @default(cuid())
-  title      String     @db.VarChar(200)
-  slug       String     @unique
-  excerpt    String?    @db.VarChar(500)
+  id         String      @id @default(cuid())
+  title      String      @db.VarChar(200)
+  slug       String      @unique
+  excerpt    String?     @db.VarChar(500)
   cover      String?
   bodyBlocks Json
-  status     PostStatus @default(DRAFT)
-  likes      Int        @default(0)
-  bookmarks  Int        @default(0)
+  status     PostStatus  @default(DRAFT)
+  likes      Int         @default(0)
+  bookmarks  Int         @default(0)
   authorId   Int
-  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author     User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  sidebarId  String?
+  sidebar    SidebarItem? @relation(fields: [sidebarId], references: [id], onDelete: SetNull)
   topics     Topic[]
   tags       Tag[]
   comments   Comment[]
@@ -113,6 +116,7 @@ model Post {
   updatedAt DateTime @updatedAt
 
   @@index([authorId])
+  @@index([sidebarId])
   @@index([status, createdAt])
   @@map("posts")
 }

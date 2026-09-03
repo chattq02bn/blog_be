@@ -4,14 +4,28 @@ export const postStatusSchema = z.enum(["draft", "published"]);
 
 const blockSchema = z.record(z.string(), z.unknown());
 
+const coerceEmptyToNull = z
+  .string()
+  .trim()
+  .transform((v) => (v.length === 0 ? null : v))
+  .nullable()
+  .optional();
+
 export const createPostSchema = z.object({
   title: z.string().trim().min(3, "Title must be at least 3 characters").max(200),
   excerpt: z.string().trim().max(500).optional(),
   cover: z.string().trim().min(1).max(500000).nullable().optional(),
   bodyBlocks: z.array(blockSchema).default([]),
   status: postStatusSchema.default("draft"),
-  topicIds: z.array(z.string().min(1)).default([]),
-  tagIds: z.array(z.string().min(1)).default([]),
+  sidebarId: coerceEmptyToNull,
+  topicIds: z
+    .array(z.string().trim())
+    .transform((ids) => ids.filter(Boolean))
+    .default([]),
+  tagIds: z
+    .array(z.string().trim())
+    .transform((ids) => ids.filter(Boolean))
+    .default([]),
 });
 
 export const updatePostSchema = createPostSchema.partial();
@@ -31,6 +45,7 @@ export const listPostsQuerySchema = z.object({
       message: "topicIds must be a comma-separated list of ids",
     }),
   tagId: z.string().trim().min(1).optional(),
+  sidebarId: coerceEmptyToNull,
   authorId: z.coerce.number().int().positive().optional(),
 });
 
