@@ -8,6 +8,19 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import type { ListCommentsQuery } from "../validations/comment.validation.js";
 
+/**
+ * Resolve commenterId from either auth user or commenter token.
+ * Priority: commenter token > auth user (find/create commenter profile).
+ */
+async function resolveCommenterId(req: Request): Promise<number> {
+  if (req.commenter) return req.commenter.id;
+  if (req.user) {
+    const result = await findOrCreateForUser(req.user.id, req.user.name || "Người dùng");
+    return result.commenter.id;
+  }
+  throw ApiError.unauthorized("Login or commenter token required");
+}
+
 export const listPostComments = asyncHandler(async (req, res) => {
   const viewer = req.user ? { id: req.user.id } : null;
   const result = await listComments(
@@ -59,22 +72,18 @@ export const postComment = asyncHandler(async (req, res) => {
 });
 
 export const patchComment = asyncHandler(async (req, res) => {
-  if (!req.commenter) {
-    throw ApiError.unauthorized("Commenter token required");
-  }
+  const commenterId = await resolveCommenterId(req);
   const comment = await updateComment(
     String(req.params.id),
-    req.commenter.id,
+    commenterId,
     req.body
   );
   res.json({ success: true, message: "Comment updated", data: comment });
 });
 
 export const removeComment = asyncHandler(async (req, res) => {
-  if (!req.commenter) {
-    throw ApiError.unauthorized("Commenter token required");
-  }
-  await deleteComment(String(req.params.id), req.commenter.id);
+  const commenterId = await resolveCommenterId(req);
+  await deleteComment(String(req.params.id), commenterId);
   res.json({ success: true, message: "Comment deleted" });
 });
 

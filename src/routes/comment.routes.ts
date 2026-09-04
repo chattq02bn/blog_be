@@ -42,15 +42,15 @@ router.get("/:id/replies", optionalAuth,
   listCommentReplies
 );
 
-// PATCH /comments/:id  (requires commenter token, owner only)
-router.patch("/:id", authenticateCommenter,
+// PATCH /comments/:id  (requires commenter token OR auth, owner only)
+router.patch("/:id", optionalAuth, optionalCommenterAuth,
   validate(idParamSchema, "params"),
   validate(updateCommentSchema),
   patchComment
 );
 
-// DELETE /comments/:id  (requires commenter token, owner only)
-router.delete("/:id", authenticateCommenter,
+// DELETE /comments/:id  (requires commenter token OR auth, owner only)
+router.delete("/:id", optionalAuth, optionalCommenterAuth,
   validate(idParamSchema, "params"),
   removeComment
 );

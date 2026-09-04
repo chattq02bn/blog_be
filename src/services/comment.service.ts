@@ -70,6 +70,34 @@ const commentInclude = {
   _count: { select: { replies: true } },
 } as const;
 
+/**
+ * Đếm TẤT cả descendants (con + cháu + ...) bằng recursive CTE,
+ * thay vì chỉ direct children như _count.replies.
+ */
+async function countAllDescendants(postId: string, parentIds: string[]): Promise<Map<string, number>> {
+  if (parentIds.length === 0) return new Map();
+
+  const result: { parentId: string; cnt: number }[] = await prisma.$queryRaw`
+    WITH RECURSIVE tree AS (
+      SELECT "id", "parentId" FROM "comments"
+      WHERE "postId" = ${postId} AND "parentId" IS NOT NULL
+      UNION ALL
+      SELECT c."id", c."parentId" FROM "comments" c
+      INNER JOIN tree t ON c."parentId" = t."id"
+    )
+    SELECT "parentId", COUNT(*)::int AS cnt
+    FROM tree
+    GROUP BY "parentId"
+  `;
+
+  const parentSet = new Set(parentIds);
+  return new Map(
+    result
+      .filter((r) => parentSet.has(r.parentId))
+      .map((r) => [r.parentId, r.cnt])
+  );
+}
+
 // --- listComments ---
 export async function listComments(
   postIdOrSlug: string,
@@ -92,8 +120,20 @@ export async function listComments(
     prisma.comment.count({ where }),
   ]);
 
+  // Đếm TẤT descendants (con + cháu + ...) thay vì direct children
+  const parentIds = rows.map((r) => r.id);
+  const descendantCounts = await countAllDescendants(post.id, parentIds);
+
   return {
-    data: rows.map((row) => serializeComment(row, post.authorId, viewer)),
+    data: rows.map((row) => {
+      const serialized = serializeComment(row, post.authorId, viewer);
+      // Override repliesCount bằng tổng descendants
+      const totalReplies = descendantCounts.get(row.id);
+      if (totalReplies !== undefined) {
+        serialized.repliesCount = totalReplies;
+      }
+      return serialized;
+    }),
     meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   };
 }
