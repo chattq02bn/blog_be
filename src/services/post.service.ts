@@ -535,7 +535,7 @@ async function listTopicPosts(
 
   // Gom tất cả topic ids (parent + children)
   const allTopicIds: string[] = [];
-  const topicInfoMap = new Map<string, { id: string; name: string; description: string }>();
+  const topicInfoMap = new Map<string, { id: string; name: string; description: string | null }>();
   for (const t of sidebarItem.topics) {
     allTopicIds.push(t.id);
     topicInfoMap.set(t.id, t);
