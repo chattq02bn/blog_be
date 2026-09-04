@@ -146,7 +146,7 @@ async function createPost(authorId: number, input: CreatePostInput) {
   const slug = await uniqueSlug(input.title);
 
   if (input.sidebarId) {
-    const exists = await prisma.sidebarItem.findUnique({ where: { id: input.sidebarId }, select: { id: true } });
+    const exists = await prisma.sidebarItem.findUnique({ where: { id: input.sidebarId }, select: { id: true, name: true } });
     if (!exists) {
       logger.warn("[post.create] Sidebar not found:", input.sidebarId);
       throw ApiError.badRequest("Sidebar not found");
@@ -167,6 +167,41 @@ async function createPost(authorId: number, input: CreatePostInput) {
     }
   }
 
+  // Xác định topicIds cuối cùng: nếu không chọn topic nào nhưng có sidebarId,
+  // tự động tìm hoặc tạo topic "Danh_something" cho sidebar đó
+  let finalTopicIds = input.topicIds;
+  if (finalTopicIds.length === 0 && input.sidebarId) {
+    const sidebar = await prisma.sidebarItem.findUnique({
+      where: { id: input.sidebarId },
+      select: { id: true, name: true, slug: true },
+    });
+    if (sidebar) {
+      const topicName = `Danh_something ${sidebar.name}`;
+      // Tìm topic đã tồn tại trong sidebar này
+      const existingTopic = await prisma.topic.findFirst({
+        where: {
+          name: topicName,
+          sidebarItems: { some: { id: sidebar.id } },
+        },
+        select: { id: true },
+      });
+
+      if (existingTopic) {
+        finalTopicIds = [existingTopic.id];
+      } else {
+        // Tạo topic mới và gán cho sidebar
+        const newTopic = await prisma.topic.create({
+          data: {
+            name: topicName,
+            sidebarItems: { connect: { id: sidebar.id } },
+          },
+          select: { id: true },
+        });
+        finalTopicIds = [newTopic.id];
+      }
+    }
+  }
+
   const post = await prisma.post.create({
     data: {
       title: input.title,
@@ -177,7 +212,7 @@ async function createPost(authorId: number, input: CreatePostInput) {
       status: input.status === "published" ? "PUBLISHED" : "DRAFT",
       authorId,
       sidebarId: input.sidebarId ?? null,
-      ...(input.topicIds.length > 0 ? { topics: { connect: input.topicIds.map((id) => ({ id })) } } : {}),
+      ...(finalTopicIds.length > 0 ? { topics: { connect: finalTopicIds.map((id) => ({ id })) } } : {}),
       ...(input.tagIds.length > 0 ? { tags: { connect: input.tagIds.map((id) => ({ id })) } } : {}),
     },
     select: POST_SELECT,
@@ -224,7 +259,7 @@ async function getPostByIdOrSlug(idOrSlug: string) {
 }
 
 async function updatePost(id: string, requester: AuthUser, input: UpdatePostInput) {
-  const existing = await prisma.post.findUnique({ where: { id }, select: { authorId: true } });
+  const existing = await prisma.post.findUnique({ where: { id }, select: { authorId: true, sidebarId: true } });
 
   if (!existing) {
     throw ApiError.notFound("Post not found");
@@ -233,7 +268,7 @@ async function updatePost(id: string, requester: AuthUser, input: UpdatePostInpu
   ensureCanManage(existing, requester);
 
   if (input.sidebarId !== undefined && input.sidebarId !== null) {
-    const exists = await prisma.sidebarItem.findUnique({ where: { id: input.sidebarId }, select: { id: true } });
+    const exists = await prisma.sidebarItem.findUnique({ where: { id: input.sidebarId }, select: { id: true, name: true } });
     if (!exists) {
       logger.warn("[post.update] Sidebar not found:", input.sidebarId);
       throw ApiError.badRequest("Sidebar not found");
@@ -254,6 +289,40 @@ async function updatePost(id: string, requester: AuthUser, input: UpdatePostInpu
     }
   }
 
+  // Xác định topicIds cuối cùng: nếu không chọn topic nào nhưng có sidebarId,
+  // tự động tìm hoặc tạo topic "Danh_something" cho sidebar đó
+  let finalTopicIds = input.topicIds;
+  const sidebarIdToUse = input.sidebarId !== undefined ? input.sidebarId : existing.sidebarId;
+  if (finalTopicIds !== undefined && finalTopicIds.length === 0 && sidebarIdToUse) {
+    const sidebar = await prisma.sidebarItem.findUnique({
+      where: { id: sidebarIdToUse },
+      select: { id: true, name: true, slug: true },
+    });
+    if (sidebar) {
+      const topicName = `Danh_something ${sidebar.name}`;
+      const existingTopic = await prisma.topic.findFirst({
+        where: {
+          name: topicName,
+          sidebarItems: { some: { id: sidebar.id } },
+        },
+        select: { id: true },
+      });
+
+      if (existingTopic) {
+        finalTopicIds = [existingTopic.id];
+      } else {
+        const newTopic = await prisma.topic.create({
+          data: {
+            name: topicName,
+            sidebarItems: { connect: { id: sidebar.id } },
+          },
+          select: { id: true },
+        });
+        finalTopicIds = [newTopic.id];
+      }
+    }
+  }
+
   const data: Record<string, unknown> = {
     ...(input.title !== undefined ? { title: input.title, slug: await uniqueSlug(input.title, id) } : {}),
     ...(input.excerpt !== undefined ? { excerpt: input.excerpt } : {}),
@@ -263,7 +332,7 @@ async function updatePost(id: string, requester: AuthUser, input: UpdatePostInpu
       ? { status: input.status === "published" ? "PUBLISHED" : "DRAFT" }
       : {}),
     ...(input.sidebarId !== undefined ? { sidebarId: input.sidebarId ?? null } : {}),
-    ...(input.topicIds !== undefined ? { topics: { set: input.topicIds.map((tid) => ({ id: tid })) } } : {}),
+    ...(finalTopicIds !== undefined ? { topics: { set: finalTopicIds.map((tid) => ({ id: tid })) } } : {}),
     ...(input.tagIds !== undefined ? { tags: { set: input.tagIds.map((tid) => ({ id: tid })) } } : {}),
   };
 
